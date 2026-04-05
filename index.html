@@ -3,31 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Digital Mental Health Support Platform</title>
+    <link rel="stylesheet" href="Style.css">
+
+   
+
+
+    
 
 </head>
 <body>
-    <h1>Digital Mental Health Support Platform</h1>
+ <h1 class="main-title">Digital Mental Health Support Platform</h1>
+ <div class="login-card">
+  <h2 class="welcome">Welcome back</h2>
+  <p class="wellbeing">Your wellbeing matters</p>
+  <p class="login-text">Login to your account</p>
 
-  <h2>Login</h2>
   <form>
-     <label for="username">Username:</label><br>
-    <input type="text" id="username" name="username" required><br><br>
+    <label for="username">Username</label><br>
+    <div class="input-group">
+      <span class="icon">👤</span>
+      <input type="text" id="username" name="username" placeholder="Enter your username" required>
+    </div><br>
 
-
-    <label for="password">Password:</label><br>
-    <input type="password" id="password" name="password" required><br><br>
-
-
+    <label for="password">Password</label><br>
+    <div class="input-group">
+      <span class="icon">🔑</span>
+      <input type="password" id="password" name="password" placeholder="Enter your password" required>
+    </div><br>
 
     <button type="submit">Login</button>
-
-    <p><a href="forgot-password.html">Forgot your password?</a></p>
-<p>Don't have an account? <a href="register.html">Register here</a></p>
-<form action="login.html">
-  <button type="submit">Login</button>
   </form>
-  
 
+  <p><a href="forgot-password.html">Forgot your password?</a></p>
+  <p>Don’t have an account? <a href="register.html">Register here</a></p>
+</div>
 </body>
 </html>
