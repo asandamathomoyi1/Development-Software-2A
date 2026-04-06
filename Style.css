@@ -142,3 +142,20 @@ body {
   font-weight: bold;
   color: #333;
 }
+
+.login-card button {
+  background-color: #4b6cb7; 
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.login-card button:hover {
+  background-color: #182848;
+}
+
