@@ -4,14 +4,18 @@ body {
   align-items: center;
   justify-content: flex-start; 
   min-height: 100vh;
-  background: url('Cool Picture.png') no-repeat center center fixed;
+  background-image: url('Cool Picture.png');
+  filter: brightness(100%);
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-attachment: fixed;
   background-size: cover;
   font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .main-title {
   margin-top: 40px;
-  color: rgba(0, 0, 0, 0.521);
+  color: rgba(255, 255, 255, 0.877);
   text-align: center;
 }
 
@@ -34,7 +38,7 @@ body {
 .login-card h2 {
   margin-top: 5px;   
   margin-bottom: 8px;
-  color: #6c63ff;
+  color: #030213;
 }
 
 .login-card p {
@@ -115,7 +119,7 @@ body {
   font-weight: bold;
   margin-top: 0;       
   margin-bottom: 5px;
-  color: #333;
+  color: #3333335d;
 }
 
 .login-text {
