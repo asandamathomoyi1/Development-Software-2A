@@ -3,4 +3,5 @@ git branch -M main
 git push -u origin main
 
 git pull fetch Nkosinathi_LoginForm
-
+git fetch Nkosinathi_LoginForm
+git merge Nkosinathi_LoginForm/secondary-branch
