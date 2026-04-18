@@ -3,111 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Account - Digital Mental Health Platform</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: linear-gradient(135deg, #1e3c72, #2a5298, #6c63ff);
-      color: #fff;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    h2 {
-      text-align: center;
-      font-size: 28px;
-      margin-bottom: 20px;
-      font-weight: 600;
-    }
-
-    form {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      width: 350px;
-      text-align: left;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #fff;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 15px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      color: #333;
-    }
-
-    input::placeholder {
-      color: #999;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #4b6cb7;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    button:hover {
-      background: #182848;
-    }
-
-    p {
-      text-align: center;
-      margin-top: 15px;
-      font-size: 14px;
-      color: #e0e0e0;
-    }
-
-    a {
-      color: #ffd700;
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
+    <meta name="description" content="Create an account - Digital Mental Health Support Platform">
+    <title>Create Account - Digital Mental Health Platform</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h2>Create an Account</h2>
-  <form>
-    <label for="username">Username:</label><br>
-    <input type="text" id="username" name="username" required><br><br>
+    <h1 class="main-title">Digital Mental Health Support Platform</h1>
+    <div class="login-card">
+        <h2 class="welcome">Create Account</h2>
+        <p class="login-text">Join our mental health community</p>
 
-    <label for="email">Email:</label><br>
-    <input type="email" id="email" name="email" required><br><br>
+        <form id="registerForm">
+            <label for="username">Username</label>
+            <div class="input-group">
+                <input type="text" id="username" name="username" required>
+            </div>
 
-    <label for="password">Password:</label><br>
-    <input type="password" id="password" name="password" required><br><br>
+            <label for="email">Email</label>
+            <div class="input-group">
+                <input type="email" id="email" name="email" required>
+            </div>
 
-    <button type="submit">Register</button>
-  </form>
+            <label for="password">Password</label>
+            <div class="input-group">
+                
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="input-group">
+                <input type="password" id="confirmPassword" name="confirmPassword" required>
+            </div>
+
+            <button type="submit">Register</button>
+        </form>
+
+        <p>Already have an account? <a href="index.html">Login here</a></p>
+    </div>
+
+    <script src="register.js"></script>
 </body>
 </html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Digital Mental Health Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+        .profile-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 16px 50px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+        .profile-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 18px 58px rgba(0,0,0,0.22);
+            background: rgba(255, 255, 255, 0.20);
+        }
+        .profile-card h1 {
+            margin-bottom: 15px;
+            font-weight: 400;
+            transition: color 0.3s ease;
+        }
+        .profile-card:hover h1 {
+            color: #f8f8f8;
+        }
+        .profile-card p {
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 25px;
+            transition: color 0.3s ease;
+        }
+        .profile-card:hover p {
+            color: rgba(255,255,255,0.95);
+        }
+        .profile-card a {
+            display: inline-block;
+            margin: 0 10px;
+            padding: 12px 18px;
+            background: #4b6cb7;
+            color: #fff;
+            border-radius: 10px;
+            text-decoration: none;
+            transition: background 0.3s ease;
+        }
+        .profile-card a:hover {
+            background: #182848;
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-card">
+        <h1>Profile</h1>
+        <p>This is a simple profile page placeholder. You can add profile details here later.</p>
+        <a href="HomePage.html">Home</a>
+        <a href="dashboard.html">Dashboard</a>
+    </div>
+</body>
+</html>
