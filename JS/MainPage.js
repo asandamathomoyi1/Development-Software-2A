@@ -38,7 +38,19 @@ function signup(name, email, password) {
     currentUser = { id: nu.id, email: nu.email, name: nu.name };
     localStorage.setItem('ms_user', JSON.stringify(currentUser));
     moodHistory = []; chatMessages = []; load();
+    // Sync with server
+    fetch('register.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: nu.id, name, email, password })
+    }).catch(() => {});
     goto('dashboard'); return true;
+}
+function isPasswordStrong(password) {
+    return typeof password === 'string'
+        && password.length >= 8
+        && /[0-9]/.test(password)
+        && /[^A-Za-z0-9]/.test(password);
 }
 function logout() {
     currentUser = null; localStorage.removeItem('ms_user');
@@ -76,8 +88,8 @@ function botResponse(input) {
         return "Anxiety can feel like a wave that won't stop. Try this: breathe in for 4 counts, hold for 7, breathe out for 8. Do that twice. Would you like to talk about what's been triggering this?";
     if (i.includes('sleep') || i.includes('tired') || i.includes('exhaust') || i.includes('rest'))
         return "Sleep and emotional wellbeing are deeply linked. When we're depleted, everything feels harder. Are you getting enough rest, and if not — what do you think is getting in the way?";
-    if (i.includes('help') || i.includes('support') || i.includes('crisis'))
-        return "I'm right here with you. If you ever feel you need immediate human support, please reach out to a crisis line or trusted person. And if you'd like to keep talking here, I'm not going anywhere 💙";
+    if (i.includes('help') || i.includes('support') || i.includes('crisis') || i.includes('download') || i.includes('app'))
+        return "I'm right here with you. If you want extra guided support, visit HelloBetter: https://hellobetter.de/en/ello/ . It has download options and further assistance beyond this chat.";
     if (i.includes('mood') || i.includes('track'))
         return moodHistory.length
             ? `Your last recorded mood was ${moodLabels[moodHistory[moodHistory.length-1].mood].toLowerCase()} on ${moodHistory[moodHistory.length-1].date}. How are you feeling compared to then?`
@@ -86,6 +98,7 @@ function botResponse(input) {
 }
 
 function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function linkifyText(t) { return escHtml(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noreferrer" style="color:#38bdf8;text-decoration:underline;">$1</a>'); }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 
 function renderChatMessages() {
@@ -106,7 +119,7 @@ function renderChatMessages() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </div>
               <div class="bubble-bot rounded-2xl rounded-bl-none px-4 py-3 max-w-xs backdrop-blur-md">
-                  <p style="color:var(--text-primary);font-size:14px;line-height:1.6;">${escHtml(m.text)}</p>
+                  <p style="color:var(--text-primary);font-size:14px;line-height:1.6;">${linkifyText(m.text)}</p>
                   <p style="color:var(--text-muted);font-size:11px;margin-top:4px;">${fmtTime(m.timestamp)}</p>
               </div>
           </div>`
@@ -216,8 +229,25 @@ function handleSignup() {
     const pw    = document.getElementById('signupPassword')?.value;
     const err   = document.getElementById('signupError');
     if (!name||!email||!pw) { showError(err,'Please fill in all fields.'); return; }
-    if (pw.length < 6) { showError(err,'Password must be at least 6 characters.'); return; }
+    if (!isPasswordStrong(pw)) { showError(err,'Password must be at least 8 characters and include one number and one special character.'); return; }
     if (!signup(name,email,pw)) showError(err,'An account with this email already exists.');
+}
+function handleResetPassword() {
+    const email = document.getElementById('resetEmail')?.value?.trim();
+    const newPw = document.getElementById('resetNewPassword')?.value;
+    const confirmPw = document.getElementById('resetConfirmPassword')?.value;
+    const err   = document.getElementById('resetError');
+    if (!email || !newPw || !confirmPw) { showError(err,'Please complete all fields.'); return; }
+    if (newPw !== confirmPw) { showError(err,'New passwords do not match.'); return; }
+    if (!isPasswordStrong(newPw)) { showError(err,'Password must be at least 8 characters and include one number and one special character.'); return; }
+    const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
+    const user = users.find(u => u.email === email);
+    if (!user) { showError(err,'No account found with that email address.'); return; }
+    if (user.password === newPw) { showError(err,'Please choose a new password, not your old one.'); return; }
+    user.password = newPw;
+    localStorage.setItem('ms_users', JSON.stringify(users));
+    showError(err,'Password has been reset. Please sign in now.');
+    setTimeout(() => goto('login'), 1500);
 }
 function submitChat() {
     const inp = document.getElementById('chatInput');
@@ -459,6 +489,10 @@ function LoginPage() {
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Password</label>
                         <input type="password" id="loginPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Your password" onkeydown="if(event.key==='Enter')handleLogin()">
                     </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:-4px;">
+                        <button onclick="goto('reset')" style="background:none;border:none;color:#38bdf8;font-size:13px;cursor:pointer;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Forgot password?</button>
+                        <span style="color:var(--text-muted);font-size:12px;">Must be new and strong</span>
+                    </div>
                     <div id="loginError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
                     <button onclick="handleLogin()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Sign in</button>
                 </div>
@@ -497,7 +531,7 @@ function SignupPage() {
                         <input type="email" id="signupEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com">
                     </div>
                     <div>
-                        <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Password <span style="color:var(--text-muted);font-weight:400;">(min. 6 chars)</span></label>
+                        <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Password <span style="color:var(--text-muted);font-weight:400;">(min. 8 chars, include 1 number & 1 special character)</span></label>
                         <input type="password" id="signupPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Create a password" onkeydown="if(event.key==='Enter')handleSignup()">
                     </div>
                     <div id="signupError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
@@ -510,6 +544,46 @@ function SignupPage() {
                 </div>
                 <div style="margin-top:10px;text-align:center;">
                     <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function ResetPasswordPage() {
+    return `${Nav('reset')}
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 24px 40px;">
+        <div style="width:100%;max-width:420px;" class="anim-scaleIn">
+            <div class="glass-2" style="border-radius:24px;padding:36px;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 3c-2.5 0-7 1.25-7 3.75V23h14v.75c0-2.5-4.5-3.75-7-3.75z"/></svg>
+                    </div>
+                    <h1 style="font-family:'Sora',sans-serif;font-size:24px;font-weight:700;margin-bottom:6px;">Reset your password</h1>
+                    <p style="color:var(--text-muted);font-size:14px;">Enter your email and choose a brand new password.</p>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Email address</label>
+                        <input type="email" id="resetEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">New password <span style="color:var(--text-muted);font-weight:400;">(min. 8 chars, include 1 number & 1 special character)</span></label>
+                        <input type="password" id="resetNewPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="New password" onkeydown="if(event.key==='Enter')handleResetPassword()">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Confirm new password</label>
+                        <input type="password" id="resetConfirmPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')handleResetPassword()">
+                    </div>
+                    <div id="resetError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
+                    <button onclick="handleResetPassword()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Reset password</button>
+                    <p style="color:var(--text-secondary);font-size:13px;text-align:center;">Please choose a brand new password — not one you forgot.</p>
+                </div>
+                <div style="margin-top:18px;text-align:center;">
+                    <p style="color:var(--text-muted);font-size:13px;">Remembered your password? <button onclick="goto('login')" style="background:none;border:none;cursor:pointer;color:#38bdf8;font-size:13px;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Sign in</button></p>
+                </div>
+                <div style="margin-top:10px;text-align:center;">
+                    <button onclick="goto('landing')" style="background:none;border:none;color:var(--text-muted);font-size:13px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
                 </div>
             </div>
         </div>
@@ -629,6 +703,9 @@ function ChatbotPage() {
                 </div>
             </div>
         </div>
+        <div style="background:rgba(3,13,23,0.82);border-bottom:1px solid rgba(56,189,248,0.12);padding:10px 24px;text-align:center;">
+            <a href="https://hellobetter.de/en/ello/" target="_blank" rel="noreferrer" class="btn-glass" style="padding:10px 18px;border-radius:12px;font-size:13px;">Open HelloBetter for app support</a>
+        </div>
 
         <!-- Messages -->
         <div id="chatList" style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;"></div>
@@ -731,6 +808,7 @@ function render() {
         case 'about':     app.innerHTML = AboutPage();     break;
         case 'login':     app.innerHTML = LoginPage();     break;
         case 'signup':    app.innerHTML = SignupPage();    break;
+        case 'reset':     app.innerHTML = ResetPasswordPage(); break;
         case 'dashboard': app.innerHTML = DashboardPage(); setTimeout(buildChart, 80); break;
         case 'chatbot':   app.innerHTML = ChatbotPage();   setTimeout(renderChatMessages, 50); break;
         case 'profile':   app.innerHTML = ProfilePage();   break;
