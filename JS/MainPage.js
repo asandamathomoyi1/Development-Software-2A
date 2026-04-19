@@ -30,6 +30,16 @@ function login(email, password) {
     moodHistory = []; chatMessages = []; load();
     goto('dashboard'); return true;
 }
+function syncUserToAdmin(user, password) {
+    fetch('register.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, name: user.name, email: user.email, password })
+    }).catch(() => {
+        // Keep app working even if server sync fails
+    });
+}
+
 function signup(name, email, password) {
     const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
     if (users.some(u => u.email === email)) return false;
@@ -38,12 +48,7 @@ function signup(name, email, password) {
     currentUser = { id: nu.id, email: nu.email, name: nu.name };
     localStorage.setItem('ms_user', JSON.stringify(currentUser));
     moodHistory = []; chatMessages = []; load();
-    // Sync with server
-    fetch('register.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: nu.id, name, email, password })
-    }).catch(() => {});
+    syncUserToAdmin(currentUser, password);
     goto('dashboard'); return true;
 }
 function isPasswordStrong(password) {
@@ -221,7 +226,11 @@ function handleLogin() {
     const pw    = document.getElementById('loginPassword')?.value;
     const err   = document.getElementById('loginError');
     if (!email || !pw) { showError(err, 'Please fill in all fields.'); return; }
-    if (!login(email, pw)) showError(err, 'Incorrect email or password.');
+    if (login(email, pw)) {
+        syncUserToAdmin(currentUser, pw);
+    } else {
+        showError(err, 'Incorrect email or password.');
+    }
 }
 function handleSignup() {
     const name  = document.getElementById('signupName')?.value?.trim();
