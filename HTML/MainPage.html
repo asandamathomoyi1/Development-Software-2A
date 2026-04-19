@@ -206,6 +206,25 @@
         }
         .input-glass::placeholder { color: var(--text-muted); }
 
+        /* ===== PROGRESS BARS ===== */
+        .progress-container {
+            position: relative;
+            margin-top: 8px;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            width: 0%;
+        }
+        .progress-red { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .progress-orange { background: linear-gradient(90deg, #f97316, #ea580c); }
+        .progress-green { background: linear-gradient(90deg, #22c55e, #16a34a); }
+
         /* ===== MOOD BUTTONS ===== */
         .mood-btn {
             background: rgba(8, 40, 70, 0.5);

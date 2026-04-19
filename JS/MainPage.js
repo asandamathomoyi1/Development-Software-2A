@@ -45,11 +45,8 @@ function signup(name, email, password) {
     if (users.some(u => u.email === email)) return false;
     const nu = { id: Date.now().toString(), name, email, password };
     users.push(nu); localStorage.setItem('ms_users', JSON.stringify(users));
-    currentUser = { id: nu.id, email: nu.email, name: nu.name };
-    localStorage.setItem('ms_user', JSON.stringify(currentUser));
-    moodHistory = []; chatMessages = []; load();
-    syncUserToAdmin(currentUser, password);
-    goto('dashboard'); return true;
+    syncUserToAdmin(nu, password);
+    goto('login'); return true;
 }
 function isPasswordStrong(password) {
     return typeof password === 'string'
@@ -94,7 +91,7 @@ function botResponse(input) {
     if (i.includes('sleep') || i.includes('tired') || i.includes('exhaust') || i.includes('rest'))
         return "Sleep and emotional wellbeing are deeply linked. When we're depleted, everything feels harder. Are you getting enough rest, and if not — what do you think is getting in the way?";
     if (i.includes('help') || i.includes('support') || i.includes('crisis') || i.includes('download') || i.includes('app'))
-        return "I'm right here with you. If you want extra guided support, visit HelloBetter: https://hellobetter.de/en/ello/ . It has download options and further assistance beyond this chat.";
+        return "I'm right here with you. If you want extra guided support, you have three great options: HelloBetter at https://hellobetter.de/en/ello/ , AuraMind at https://play.google.com/store/apps/details?id=com.zoony.auramind , or Nuom Health at https://www.nuom.health/your-business/healthcare-software/digital-solutions-for-mental-health . All offer download options and further assistance beyond this chat.";
     if (i.includes('mood') || i.includes('track'))
         return moodHistory.length
             ? `Your last recorded mood was ${moodLabels[moodHistory[moodHistory.length-1].mood].toLowerCase()} on ${moodHistory[moodHistory.length-1].date}. How are you feeling compared to then?`
@@ -105,6 +102,42 @@ function botResponse(input) {
 function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function linkifyText(t) { return escHtml(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noreferrer" style="color:#38bdf8;text-decoration:underline;">$1</a>'); }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+
+function updateProgressBar(inputId) {
+    const input = document.getElementById(inputId);
+    const progressBar = document.getElementById(inputId + 'Progress');
+    if (!input || !progressBar) return;
+
+    const value = input.value;
+    let progress = 0;
+    let colorClass = 'progress-red';
+
+    if (input.type === 'email') {
+        // Email progress: basic validation
+        if (value.length > 0) progress = 33;
+        if (value.includes('@')) progress = 66;
+        if (value.includes('@') && value.includes('.') && value.length > 5) progress = 100;
+    } else if (input.type === 'password') {
+        // Password progress: length and complexity
+        if (value.length > 0) progress = 20;
+        if (value.length >= 4) progress = 40;
+        if (value.length >= 8) progress = 60;
+        if (value.length >= 8 && /\d/.test(value)) progress = 80;
+        if (value.length >= 8 && /\d/.test(value) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) progress = 100;
+    }
+
+    // Set color based on progress
+    if (progress >= 100) {
+        colorClass = 'progress-green';
+    } else if (progress >= 50) {
+        colorClass = 'progress-orange';
+    } else {
+        colorClass = 'progress-red';
+    }
+
+    progressBar.style.width = progress + '%';
+    progressBar.className = 'progress-bar ' + colorClass;
+}
 
 function renderChatMessages() {
     const el = document.getElementById('chatList');
@@ -239,7 +272,12 @@ function handleSignup() {
     const err   = document.getElementById('signupError');
     if (!name||!email||!pw) { showError(err,'Please fill in all fields.'); return; }
     if (!isPasswordStrong(pw)) { showError(err,'Password must be at least 8 characters and include one number and one special character.'); return; }
-    if (!signup(name,email,pw)) showError(err,'An account with this email already exists.');
+    if (signup(name,email,pw)) {
+        showError(err,'Account created successfully! Please log in.');
+        setTimeout(() => goto('login'), 1500);
+    } else {
+        showError(err,'An account with this email already exists.');
+    }
 }
 function handleResetPassword() {
     const email = document.getElementById('resetEmail')?.value?.trim();
@@ -492,11 +530,13 @@ function LoginPage() {
                 <div style="display:flex;flex-direction:column;gap:18px;">
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Email address</label>
-                        <input type="email" id="loginEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com">
+                        <input type="email" id="loginEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com" oninput="updateProgressBar('loginEmail')">
+                        <div class="progress-container"><div id="loginEmailProgress" class="progress-bar"></div></div>
                     </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Password</label>
-                        <input type="password" id="loginPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Your password" onkeydown="if(event.key==='Enter')handleLogin()">
+                        <input type="password" id="loginPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Your password" onkeydown="if(event.key==='Enter')handleLogin()" oninput="updateProgressBar('loginPassword')">
+                        <div class="progress-container"><div id="loginPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:-4px;">
                         <button onclick="goto('reset')" style="background:none;border:none;color:#38bdf8;font-size:13px;cursor:pointer;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Forgot password?</button>
@@ -537,11 +577,13 @@ function SignupPage() {
                     </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Email address</label>
-                        <input type="email" id="signupEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com">
+                        <input type="email" id="signupEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com" oninput="updateProgressBar('signupEmail')">
+                        <div class="progress-container"><div id="signupEmailProgress" class="progress-bar"></div></div>
                     </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Password <span style="color:var(--text-muted);font-weight:400;">(min. 8 chars, include 1 number & 1 special character)</span></label>
-                        <input type="password" id="signupPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Create a password" onkeydown="if(event.key==='Enter')handleSignup()">
+                        <input type="password" id="signupPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Create a password" onkeydown="if(event.key==='Enter')handleSignup()" oninput="updateProgressBar('signupPassword')">
+                        <div class="progress-container"><div id="signupPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div id="signupError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
                     <button onclick="handleSignup()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Create free account</button>
@@ -574,15 +616,18 @@ function ResetPasswordPage() {
                 <div style="display:flex;flex-direction:column;gap:16px;">
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Email address</label>
-                        <input type="email" id="resetEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com">
+                        <input type="email" id="resetEmail" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="you@example.com" oninput="updateProgressBar('resetEmail')">
+                        <div class="progress-container"><div id="resetEmailProgress" class="progress-bar"></div></div>
                     </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">New password <span style="color:var(--text-muted);font-weight:400;">(min. 8 chars, include 1 number & 1 special character)</span></label>
-                        <input type="password" id="resetNewPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="New password" onkeydown="if(event.key==='Enter')handleResetPassword()">
+                        <input type="password" id="resetNewPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="New password" onkeydown="if(event.key==='Enter')handleResetPassword()" oninput="updateProgressBar('resetNewPassword')">
+                        <div class="progress-container"><div id="resetNewPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:7px;font-family:'Sora',sans-serif;">Confirm new password</label>
-                        <input type="password" id="resetConfirmPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')handleResetPassword()">
+                        <input type="password" id="resetConfirmPassword" class="input-glass" style="width:100%;border-radius:10px;padding:11px 14px;font-size:14px;" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')handleResetPassword()" oninput="updateProgressBar('resetConfirmPassword')">
+                        <div class="progress-container"><div id="resetConfirmPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div id="resetError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
                     <button onclick="handleResetPassword()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Reset password</button>
