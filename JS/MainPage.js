@@ -431,9 +431,9 @@ function LandingPage() {
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
                     ${[
-                        {q:"Tracking daily showed me how much sleep was affecting my anxiety. A genuine game changer.", name:"Kefilwe M.", role:"User since 2024", init:"KM"},
-                        {q:"The AI companion is non-judgmental. I talk to it on the nights I can't face anyone else.", name:"Thabo N.", role:"User since 2023", init:"TN"},
-                        {q:"Seeing my mood charts improve feels like real proof that healing is actually happening.", name:"Sipho R.", role:"User since 2024", init:"SR"},
+                        {q:"Tracking daily showed me how much sleep was affecting my anxiety. A genuine game changer.", name:"Sifundo Dube", role:"User since April 2026", init:"SD"},
+                        {q:"The AI companion is non-judgmental. I talk to it on the nights I can't face anyone else.", name:"Cebolakhe Mlambo", role:"User since April 2026", init:"CM"},
+                        {q:"Seeing my mood charts improve feels like real proof that healing is actually happening.", name:"Nkosinathi T", role:"User since April 2026", init:"NT"},
                     ].map(t => `
                         <div class="t-card" style="border-radius:20px;padding:24px;backdrop-filter:blur(20px);">
                             <div style="display:flex;gap:3px;margin-bottom:16px;">${'★★★★★'.split('').map(()=>`<span style="color:#f59e0b;font-size:13px;">★</span>`).join('')}</div>
