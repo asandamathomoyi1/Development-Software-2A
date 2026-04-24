@@ -100,7 +100,7 @@ function botResponse(input) {
 }
 
 function escHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function linkifyText(t) { return escHtml(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noreferrer" style="color:#38bdf8;text-decoration:underline;">$1</a>'); }
+function linkifyText(t) { return escHtml(t).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noreferrer" style="color:#60a5fa;text-decoration:underline;">$1</a>'); }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 
 function updateProgressBar(inputId) {
@@ -153,7 +153,7 @@ function renderChatMessages() {
               </div>
           </div>`
         : `<div class="flex gap-3 items-end anim-fadeUp">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#0ea5e9,#10b981);">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </div>
               <div class="bubble-bot rounded-2xl rounded-bl-none px-4 py-3 max-w-xs backdrop-blur-md">
@@ -176,7 +176,7 @@ function sendChat(text) {
         typing.id = 'typingIndicator';
         typing.className = 'flex gap-3 items-end';
         typing.innerHTML = `
-            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#0ea5e9,#10b981);">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             </div>
             <div class="bubble-bot rounded-2xl rounded-bl-none px-4 py-3 flex gap-2 items-center">
@@ -218,7 +218,7 @@ function buildChart() {
             datasets: [{
                 label: 'Mood',
                 data: last7.map(e => e.mood),
-                borderColor: '#38bdf8',
+                borderColor: '#60a5fa',
                 backgroundColor: (ctx) => {
                     const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
                     g.addColorStop(0, 'rgba(56,189,248,0.25)');
@@ -226,7 +226,7 @@ function buildChart() {
                     return g;
                 },
                 borderWidth: 2.5,
-                pointBackgroundColor: '#38bdf8',
+                pointBackgroundColor: '#60a5fa',
                 pointBorderColor: 'rgba(3,13,23,0.8)',
                 pointBorderWidth: 2,
                 pointRadius: 5,
@@ -307,6 +307,42 @@ function scrollToSection(id) {
     if (!element) return;
     element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+function subscribeNewsletter() {
+    const email = document.getElementById('newsletterEmail')?.value?.trim();
+    const btn = document.getElementById('newsletterBtn');
+    const msg = document.getElementById('newsletterMessage');
+    if (!email) { 
+        msg.textContent = 'Please enter your email address.'; 
+        msg.style.backgroundColor = 'rgba(239,68,68,0.1)';
+        msg.style.color = '#f87171';
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 4000);
+        return; 
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.textContent = 'Please enter a valid email address.';
+        msg.style.backgroundColor = 'rgba(239,68,68,0.1)';
+        msg.style.color = '#f87171';
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 4000);
+        return;
+    }
+    
+    // Save newsletter subscription to localStorage
+    let subscribers = JSON.parse(localStorage.getItem('ms_newsletter') || '[]');
+    if (!subscribers.some(s => s === email)) {
+        subscribers.push(email);
+        localStorage.setItem('ms_newsletter', JSON.stringify(subscribers));
+    }
+    
+    // Show success message
+    msg.textContent = '✓ Thank you for subscribing! Check your inbox for a welcome email.';
+    msg.style.backgroundColor = 'rgba(34,197,94,0.1)';
+    msg.style.color = '#22c55e';
+    msg.style.display = 'block';
+    document.getElementById('newsletterEmail').value = '';
+    setTimeout(() => msg.style.display = 'none', 4000);
+}
 
 // ===== NAV =====
 function Nav(page) {
@@ -315,7 +351,7 @@ function Nav(page) {
     <nav class="nav-glass fixed top-0 left-0 right-0 z-50">
         <div style="max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
             <button onclick="goto('${auth?'dashboard':'landing'}')" style="display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;">
-                <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;">
+                <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                 </div>
                 <span style="font-family:'Sora',sans-serif;font-weight:600;font-size:16px;color:var(--text-primary);">Digital Mental Health Platform</span>
@@ -330,6 +366,8 @@ function Nav(page) {
                 ` : `
                     <button onclick="scrollToSection('features')" class="nav-link">Features</button>
                     <button onclick="scrollToSection('howItWorks')" class="nav-link">How it works</button>
+                    <button onclick="scrollToSection('resources')" class="nav-link">Resources</button>
+                    <button onclick="scrollToSection('faq')" class="nav-link">FAQ</button>
                     <button onclick="goto('about')" class="nav-link">About</button>
                     <button onclick="goto('login')" class="btn-ghost" style="padding:7px 16px;border-radius:8px;font-size:14px;cursor:pointer;margin-left:4px;">Log in</button>
                     <button onclick="goto('signup')" class="btn-primary" style="padding:8px 18px;border-radius:8px;font-size:14px;cursor:pointer;margin-left:2px;">Sign up free</button>
@@ -347,7 +385,7 @@ function LandingPage() {
         <!-- Hero -->
         <section style="min-height:92vh;display:flex;align-items:center;justify-content:center;padding:80px 24px 60px;text-align:center;position:relative;">
             <div class="anim-fadeUp" style="max-width:760px;margin:0 auto;">
-                <div class="badge anim-fadeUp" style="display:inline-block;margin-bottom:28px;">✦ Your ocean of calm</div>
+                <div class="badge anim-fadeUp" style="display:inline-block;margin-bottom:28px;">Your ocean of calm</div>
 
                 <h1 class="anim-fadeUp delay-1" style="font-family:'Sora',sans-serif;font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1.1;margin-bottom:24px;letter-spacing:-0.02em;">
                     Mental wellness,<br><span class="text-aurora">clear as water</span>
@@ -357,15 +395,10 @@ function LandingPage() {
                     Track your moods, talk to an AI companion, and discover the patterns that shape your emotional world — in a safe, private space.
                 </p>
 
-                <div class="anim-fadeUp delay-3" style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:60px;">
-                    <button onclick="goto('signup')" class="btn-primary" style="padding:14px 32px;border-radius:12px;font-size:16px;cursor:pointer;">Start for free →</button>
-                    <button onclick="scrollToSection('howItWorks')" class="btn-ghost" style="padding:14px 28px;border-radius:12px;font-size:16px;cursor:pointer;">See how it works</button>
-                </div>
-
                 <!-- Stats row -->
                 <div class="anim-fadeUp delay-4" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:420px;margin:0 auto;">
                     ${[['10k+','Active users'],['98%','Feel supported'],['24 / 7','AI companion']].map(([n,l]) => `
-                        <div class="stat-card" style="padding:16px 10px;border-radius:14px;text-align:center;">
+                        <div class="stat-card anim-glow" style="padding:16px 10px;border-radius:14px;text-align:center;">
                             <div class="text-aurora" style="font-family:'Sora',sans-serif;font-size:22px;font-weight:700;">${n}</div>
                             <div style="color:var(--text-muted);font-size:12px;margin-top:2px;">${l}</div>
                         </div>`
@@ -384,7 +417,7 @@ function LandingPage() {
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
                     ${[
-                        {icon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`, bg:'icon-bg-teal', t:'Mood Tracking', d:'Daily mood logs with beautiful visual trends over time.'},
+                        {icon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`, bg:'icon-bg-teal', t:'Mood Tracking', d:'Daily mood logs with beautiful visual trends over time.'},
                         {icon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`, bg:'icon-bg-green', t:'AI Companion', d:'Compassionate 24/7 conversations — never judgmental, always present.'},
                         {icon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>`, bg:'icon-bg-cyan', t:'Wellness Insights', d:'Pattern recognition and trend charts to understand yourself better.'},
                         {icon:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`, bg:'icon-bg-violet', t:'Private & Secure', d:'Your data is encrypted and only ever yours.'},
@@ -439,7 +472,7 @@ function LandingPage() {
                             <div style="display:flex;gap:3px;margin-bottom:16px;">${'★★★★★'.split('').map(()=>`<span style="color:#f59e0b;font-size:13px;">★</span>`).join('')}</div>
                             <p style="color:var(--text-secondary);font-size:14px;line-height:1.7;font-style:italic;margin-bottom:20px;">"${t.q}"</p>
                             <div style="display:flex;align-items:center;gap:10px;">
-                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;font-family:'Sora',sans-serif;">${t.init}</div>
+                                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:600;font-family:'Sora',sans-serif;">${t.init}</div>
                                 <div>
                                     <div style="color:var(--text-primary);font-size:13px;font-weight:500;font-family:'Sora',sans-serif;">${t.name}</div>
                                     <div style="color:var(--text-muted);font-size:11px;">${t.role}</div>
@@ -451,12 +484,84 @@ function LandingPage() {
             </div>
         </section>
 
+        <!-- Resources/Blog -->
+        <section id="resources" style="padding:100px 24px;">
+            <div style="max-width:1100px;margin:0 auto;">
+                <div style="text-align:center;margin-bottom:60px;">
+                    <div class="badge" style="display:inline-block;margin-bottom:16px;">Resources</div>
+                    <h2 style="font-family:'Sora',sans-serif;font-size:clamp(28px,4vw,44px);font-weight:700;margin-bottom:14px;">Learn from expert resources</h2>
+                    <p style="color:var(--text-secondary);font-size:17px;max-width:480px;margin:0 auto;">Explore articles, guides, and tips to support your mental wellness journey.</p>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;">
+                    ${[
+                        {title:'Understanding Anxiety', category:'Mental Health', icon:'', desc:'Learn practical techniques to manage anxiety and find calm in challenging moments.'},
+                        {title:'Sleep and Mental Health', category:'Wellness', icon:'', desc:'Discover how quality sleep impacts your emotional wellbeing and mood patterns.'},
+                        {title:'Building Resilience Daily', category:'Self-Care', icon:'', desc:'Small daily practices that compound into stronger emotional resilience over time.'},
+                        {title:'Mood Tracking Benefits', category:'Tips', icon:'', desc:'Why tracking your moods reveals patterns and empowers better emotional decisions.'},
+                    ].map(r => `
+                        <div class="feature-card" style="border-radius:20px;padding:28px 22px;backdrop-filter:blur(20px);cursor:pointer;transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(14,165,233,0.12)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow=''">
+                            <div style="font-size:32px;margin-bottom:12px;">${r.icon}</div>
+                            <div class="badge" style="display:inline-block;margin-bottom:12px;font-size:11px;">${r.category}</div>
+                            <h3 style="font-family:'Sora',sans-serif;font-size:17px;font-weight:600;margin-bottom:8px;color:var(--text-primary);">${r.title}</h3>
+                            <p style="color:var(--text-secondary);font-size:13px;line-height:1.6;">${r.desc}</p>
+                            <p style="color:#60a5fa;font-size:12px;margin-top:14px;font-weight:500;">Read more →</p>
+                        </div>`
+                    ).join('')}
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section id="faq" style="padding:100px 24px;">
+            <div style="max-width:800px;margin:0 auto;">
+                <div style="text-align:center;margin-bottom:60px;">
+                    <div class="badge" style="display:inline-block;margin-bottom:16px;">FAQ</div>
+                    <h2 style="font-family:'Sora',sans-serif;font-size:clamp(28px,4vw,44px);font-weight:700;margin-bottom:14px;">Frequently asked questions</h2>
+                    <p style="color:var(--text-secondary);font-size:17px;max-width:500px;margin:0 auto;">Find answers to common questions about our platform and mental health support.</p>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                    ${[
+                        {q:'Is my data really private?', a:'Yes. Your data is encrypted end-to-end using industry standard SSL encryption. We never sell or share your personal information. You own your data completely.'},
+                        {q:'Do I need a credit card to start?', a:'No credit card required. You can sign up and start using Digital Mental Health Platform completely free. We offer premium features in the future, but the core app is always free.'},
+                        {q:'Can I export my mood history?', a:'Yes. You can download all your mood data and chat history as a JSON file anytime from your Profile settings. Full data portability is a core value for us.'},
+                        {q:'Is the AI companion a replacement for therapy?', a:'No. Our AI companion is a supportive tool for daily emotional awareness and conversation — not a replacement for professional mental health care. If you\'re in crisis, please reach out to a professional.'},
+                        {q:'How accurate are the mood patterns?', a:'The patterns are as accurate as your tracking. The more consistently you log your moods, the better the insights. Even irregular tracking reveals valuable trends about your emotional cycles.'},
+                        {q:'Can I use this on mobile?', a:'Yes. Our app works great on mobile browsers. We\'re also building dedicated iOS and Android apps for launch later this year.'},
+                    ].map((item, idx) => `
+                        <div class="glass" style="border-radius:16px;padding:20px;cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('svg').style.transform = this.nextElementSibling.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)'">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <h3 style="font-family:'Sora',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);">${item.q}</h3>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--aurora-1);transition:transform 0.3s ease;flex-shrink:0;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </div>
+                        <div style="display:none;padding:0 20px 16px;color:var(--text-secondary);font-size:14px;line-height:1.7;">${item.a}</div>`
+                    ).join('')}
+                </div>
+            </div>
+        </section>
+
+        <!-- Newsletter -->
+        <section style="padding:100px 24px;">
+            <div style="max-width:600px;margin:0 auto;">
+                <div class="glass-2" style="border-radius:28px;padding:60px 40px;text-align:center;">
+                    <div style="font-size:48px;margin-bottom:20px;"></div>
+                    <h2 style="font-family:'Sora',sans-serif;font-size:clamp(26px,4vw,36px);font-weight:700;margin-bottom:12px;">Stay updated</h2>
+                    <p style="color:var(--text-secondary);font-size:15px;margin-bottom:32px;line-height:1.7;">Get weekly mental wellness tips, research insights, and platform updates delivered to your inbox.</p>
+                    <div style="display:flex;gap:10px;margin-bottom:16px;">
+                        <input type="email" id="newsletterEmail" class="input-glass" style="flex:1;border-radius:12px;padding:13px 16px;font-size:14px;" placeholder="you@example.com">
+                        <button id="newsletterBtn" class="btn-primary" style="padding:13px 24px;border-radius:12px;font-size:14px;cursor:pointer;white-space:nowrap;font-family:'Sora',sans-serif;font-weight:500;" onclick="subscribeNewsletter()">Subscribe</button>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:12px;">We respect your privacy. Unsubscribe anytime.</p>
+                    <div id="newsletterMessage" style="margin-top:16px;display:none;padding:10px 14px;border-radius:10px;font-size:13px;"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- CTA -->
         <section style="padding:80px 24px 120px;">
             <div style="max-width:640px;margin:0 auto;text-align:center;">
                 <div class="glass" style="border-radius:28px;padding:60px 40px;">
-                    <div style="font-size:48px;margin-bottom:20px;">🌊</div>
-                    <h2 style="font-family:'Sora',sans-serif;font-size:clamp(26px,4vw,38px);font-weight:700;margin-bottom:12px;">Ready to begin your<br><span class="text-aurora">wellness journey?</span></h2>
+                        <h2 style="font-family:'Sora',sans-serif;font-size:clamp(26px,4vw,38px);font-weight:700;margin-bottom:12px;">Ready to begin your<br><span class="text-aurora">wellness journey?</span></h2>
                     <p style="color:var(--text-secondary);font-size:16px;margin-bottom:32px;">Join thousands building healthier emotional habits every day.</p>
                     <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
                         <button onclick="goto('signup')" class="btn-primary" style="padding:14px 32px;border-radius:12px;font-size:15px;cursor:pointer;">Sign up — it's free</button>
@@ -470,7 +575,7 @@ function LandingPage() {
         <footer style="border-top:1px solid rgba(56,189,248,0.1);padding:28px 24px;">
             <div style="max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;">
+                    <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                     </div>
                     <span style="color:var(--text-muted);font-size:13px;">© 2026 Digital Mental Health Platform. All rights reserved.</span>
@@ -539,7 +644,7 @@ function LoginPage() {
                         <div class="progress-container"><div id="loginPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:-4px;">
-                        <button onclick="goto('reset')" style="background:none;border:none;color:#38bdf8;font-size:13px;cursor:pointer;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Forgot password?</button>
+                        <button onclick="goto('reset')" style="background:none;border:none;color:#60a5fa;font-size:13px;cursor:pointer;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Forgot password?</button>
                         <span style="color:var(--text-muted);font-size:12px;">Must be new and strong</span>
                     </div>
                     <div id="loginError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
@@ -547,7 +652,7 @@ function LoginPage() {
                 </div>
 
                 <div style="margin-top:22px;text-align:center;">
-                    <p style="color:var(--text-muted);font-size:13px;">Don't have an account? <button onclick="goto('signup')" style="background:none;border:none;cursor:pointer;color:#38bdf8;font-size:13px;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Sign up free</button></p>
+                    <p style="color:var(--text-muted);font-size:13px;">Don't have an account? <button onclick="goto('signup')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Sign up free</button></p>
                 </div>
                 <div style="margin-top:10px;text-align:center;">
                     <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
@@ -591,7 +696,7 @@ function SignupPage() {
                 </div>
 
                 <div style="margin-top:18px;text-align:center;">
-                    <p style="color:var(--text-muted);font-size:13px;">Already have an account? <button onclick="goto('login')" style="background:none;border:none;cursor:pointer;color:#38bdf8;font-size:13px;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Sign in</button></p>
+                    <p style="color:var(--text-muted);font-size:13px;">Already have an account? <button onclick="goto('login')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Sign in</button></p>
                 </div>
                 <div style="margin-top:10px;text-align:center;">
                     <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
@@ -634,7 +739,7 @@ function ResetPasswordPage() {
                     <p style="color:var(--text-secondary);font-size:13px;text-align:center;">Please choose a brand new password — not one you forgot.</p>
                 </div>
                 <div style="margin-top:18px;text-align:center;">
-                    <p style="color:var(--text-muted);font-size:13px;">Remembered your password? <button onclick="goto('login')" style="background:none;border:none;cursor:pointer;color:#38bdf8;font-size:13px;" onmouseover="this.style.color='#7dd3fc'" onmouseout="this.style.color='#38bdf8'">Sign in</button></p>
+                    <p style="color:var(--text-muted);font-size:13px;">Remembered your password? <button onclick="goto('login')" style="background:none;border:none;cursor:pointer;color:#60a5fa;font-size:13px;" onmouseover="this.style.color='#93c5fd'" onmouseout="this.style.color='#60a5fa'">Sign in</button></p>
                 </div>
                 <div style="margin-top:10px;text-align:center;">
                     <button onclick="goto('landing')" style="background:none;border:none;color:var(--text-muted);font-size:13px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
@@ -668,7 +773,7 @@ function DashboardPage() {
             <!-- Stats -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;" class="anim-fadeUp">
                 ${[
-                    ['Total entries', total.toString(), '#38bdf8'],
+                    ['Total entries', total.toString(), '#60a5fa'],
                     ['Avg mood', avg, '#34d399'],
                     ['Latest', latest?.emoji || '—', '#a78bfa'],
                 ].map(([label,val,color]) => `
@@ -746,7 +851,7 @@ function ChatbotPage() {
     <div style="padding-top:64px;height:100vh;display:flex;flex-direction:column;">
         <!-- Chat header -->
         <div style="background:rgba(3,13,23,0.8);backdrop-filter:blur(30px);border-bottom:1px solid rgba(56,189,248,0.12);padding:16px 24px;display:flex;align-items:center;gap:14px;">
-            <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#10b981);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#2563eb);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
             </div>
             <div>
@@ -803,7 +908,7 @@ function ProfilePage() {
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px solid rgba(56,189,248,0.1);padding-top:20px;">
                     ${[
-                        [total.toString(),'Mood entries','#38bdf8'],
+                        [total.toString(),'Mood entries','#60a5fa'],
                         [avg,'Average mood','#34d399'],
                         [chatMessages.filter(m=>m.sender==='user').length.toString(),'Chat messages','#a78bfa'],
                     ].map(([v,l,c]) => `
