@@ -1,24 +1,5 @@
 [
   {
-    "id": "1",
-    "username": "calm_healer",
-    "email": "calm.healer@example.com",
-    "password": "UserPass!1",
-    "joinDate": "2026-04-01",
-    "moodEntries": [
-      {
-        "mood": "Good",
-        "notes": "Felt better after a morning walk.",
-        "timestamp": "2026-04-18T10:15:00"
-      },
-      {
-        "mood": "Neutral",
-        "notes": "A steady day with manageable stress.",
-        "timestamp": "2026-04-17T19:20:00"
-      }
-    ]
-  },
-  {
     "id": "2",
     "username": "mindful_user",
     "email": "mindful.user@example.com",

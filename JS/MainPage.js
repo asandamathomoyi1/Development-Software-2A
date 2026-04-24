@@ -31,7 +31,7 @@ function login(email, password) {
     goto('dashboard'); return true;
 }
 function syncUserToAdmin(user, password) {
-    fetch('register.php', {
+    fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: user.id, name: user.name, email: user.email, password })
@@ -47,6 +47,45 @@ function signup(name, email, password) {
     users.push(nu); localStorage.setItem('ms_users', JSON.stringify(users));
     syncUserToAdmin(nu, password);
     goto('login'); return true;
+}
+
+function subscribeNewsletter() {
+    const email = document.getElementById('newsletterEmail').value;
+    const messageEl = document.getElementById('newsletterMessage');
+    if (!email) {
+        messageEl.innerHTML = '<div style="color:#ef4444;">Please enter an email.</div>';
+        return;
+    }
+    fetch('/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            messageEl.innerHTML = '<div style="color:#22c55e;">OTP sent! Check your email.</div>';
+            // Prompt for OTP
+            const otp = prompt('Enter the OTP from your email:');
+            if (otp) {
+                fetch('/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        messageEl.innerHTML = '<div style="color:#22c55e;">Subscribed successfully!</div>';
+                    } else {
+                        messageEl.innerHTML = '<div style="color:#ef4444;">Invalid OTP.</div>';
+                    }
+                });
+            }
+        } else {
+            messageEl.innerHTML = '<div style="color:#ef4444;">Error subscribing.</div>';
+        }
+    });
 }
 function isPasswordStrong(password) {
     return typeof password === 'string'
@@ -385,25 +424,31 @@ function LandingPage() {
         <!-- Hero -->
         <section style="min-height:92vh;display:flex;align-items:center;justify-content:center;padding:80px 24px 60px;text-align:center;position:relative;">
             <div class="anim-fadeUp" style="max-width:760px;margin:0 auto;">
-                <div class="badge anim-fadeUp" style="display:inline-block;margin-bottom:28px;">Your ocean of calm</div>
+                <div class="badge anim-fadeUp" style="display:inline-block;margin-bottom:28px;transition:transform 0.5s ease, background 0.5s ease;">Your ocean of calm</div>
 
-                <h1 class="anim-fadeUp delay-1" style="font-family:'Sora',sans-serif;font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1.1;margin-bottom:24px;letter-spacing:-0.02em;">
-                    Mental wellness,<br><span class="text-aurora">clear as water</span>
-                </h1>
+                <div style="display:flex;gap:40px;align-items:center;margin-bottom:24px;transition:all 0.8s ease;">
+                    <!-- Title on left -->
+                    <div style="flex:1;text-align:left;animation:slide-in-left 1s ease-out;">
+                        <h1 class="anim-fadeUp delay-1" style="font-family:'Sora',sans-serif;font-size:clamp(40px,6vw,72px);font-weight:700;line-height:1.1;letter-spacing:-0.02em;transition:transform 0.5s ease, color 0.5s ease;animation: color-shift 3s ease-in-out infinite;">
+                            Digital Mental Health Wellness
+                        </h1>
+                    </div>
+                    <!-- Stats on right -->
+                    <div style="flex:1;animation:slide-in-right 1s ease-out;">
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:420px;">
+                            ${[['10k+','Active users'],['98%','Feel supported'],['24 / 7','AI companion']].map(([n,l]) => `
+                                <div class="stat-card anim-glow" style="padding:16px 10px;border-radius:14px;text-align:center;transition:transform 0.3s ease, box-shadow 0.3s ease;">
+                                    <div class="text-aurora" style="font-family:'Sora',sans-serif;font-size:22px;font-weight:700;">${n}</div>
+                                    <div style="color:var(--text-muted);font-size:12px;margin-top:2px;">${l}</div>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                </div>
 
-                <p class="anim-fadeUp delay-2" style="font-size:18px;color:var(--text-secondary);line-height:1.7;max-width:500px;margin:0 auto 40px;">
+                <p class="anim-fadeUp delay-2" style="font-size:18px;color:var(--text-secondary);line-height:1.7;max-width:500px;margin:0 auto 40px;transition:opacity 0.5s ease, transform 0.5s ease;">
                     Track your moods, talk to an AI companion, and discover the patterns that shape your emotional world — in a safe, private space.
                 </p>
-
-                <!-- Stats row -->
-                <div class="anim-fadeUp delay-4" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:420px;margin:0 auto;">
-                    ${[['10k+','Active users'],['98%','Feel supported'],['24 / 7','AI companion']].map(([n,l]) => `
-                        <div class="stat-card anim-glow" style="padding:16px 10px;border-radius:14px;text-align:center;">
-                            <div class="text-aurora" style="font-family:'Sora',sans-serif;font-size:22px;font-weight:700;">${n}</div>
-                            <div style="color:var(--text-muted);font-size:12px;margin-top:2px;">${l}</div>
-                        </div>`
-                    ).join('')}
-                </div>
             </div>
         </section>
 
@@ -581,7 +626,7 @@ function LandingPage() {
                     <span style="color:var(--text-muted);font-size:13px;">© 2026 Digital Mental Health Platform. All rights reserved.</span>
                 </div>
                 <div style="display:flex;gap:20px;">
-                    ${['About','Privacy','Terms','Support'].map(l => `<button onclick="${l==='About'?'goto(\'about\')':`''`}" style="color:var(--text-muted);font-size:13px;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">${l}</button>`).join('')}
+                    ${['About','Privacy','Terms','Support'].map(l => `<button onclick="goto('${l.toLowerCase()}')" style="color:var(--text-muted);font-size:13px;background:none;border:none;cursor:pointer;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">${l}</button>`).join('')}
                 </div>
             </div>
         </footer>
@@ -614,6 +659,87 @@ function AboutPage() {
 
             <div style="text-align:center;">
                 <button onclick="goto('signup')" class="btn-primary" style="padding:14px 36px;border-radius:12px;font-size:16px;cursor:pointer;">Join Digital Mental Health Platform free</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function PrivacyPage() {
+    return `${Nav('privacy')}
+    <div style="padding-top:110px;padding-bottom:80px;padding-left:24px;padding-right:24px;min-height:100vh;">
+        <div style="max-width:720px;margin:0 auto;" class="anim-fadeUp">
+            <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;margin-bottom:36px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
+            <div class="badge" style="display:inline-block;margin-bottom:20px;">Privacy Policy</div>
+            <h1 style="font-family:'Sora',sans-serif;font-size:clamp(32px,5vw,54px);font-weight:700;line-height:1.1;margin-bottom:20px;">Your privacy is our <span class="text-aurora">priority</span></h1>
+            <p style="color:var(--text-secondary);font-size:17px;line-height:1.8;margin-bottom:36px;">We are committed to protecting your personal information and being transparent about how we use it.</p>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Data collection</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">We collect only the information necessary to provide our services: your email, name, mood entries, and chat messages. All data is encrypted and stored securely.</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Data usage</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">Your data is used solely to provide personalized mental health support, improve our AI companion, and ensure platform security. We never sell or share your data with third parties.</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Your rights</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">You have the right to access, update, or delete your data at any time. Contact us for data export or account deletion requests.</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+function TermsPage() {
+    return `${Nav('terms')}
+    <div style="padding-top:110px;padding-bottom:80px;padding-left:24px;padding-right:24px;min-height:100vh;">
+        <div style="max-width:720px;margin:0 auto;" class="anim-fadeUp">
+            <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;margin-bottom:36px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
+            <div class="badge" style="display:inline-block;margin-bottom:20px;">Terms of Service</div>
+            <h1 style="font-family:'Sora',sans-serif;font-size:clamp(32px,5vw,54px);font-weight:700;line-height:1.1;margin-bottom:20px;">Terms and <span class="text-aurora">conditions</span></h1>
+            <p style="color:var(--text-secondary);font-size:17px;line-height:1.8;margin-bottom:36px;">Please read these terms carefully before using Digital Mental Health Platform.</p>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Acceptance of terms</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">By using our platform, you agree to these terms. If you do not agree, please do not use the service.</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">User responsibilities</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">You are responsible for maintaining the confidentiality of your account and for all activities under your account.</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Service availability</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">We strive for 99.9% uptime but cannot guarantee uninterrupted service. We reserve the right to modify or discontinue the service.</p>
+            </div>
+        </div>
+    </div>`;
+}
+
+function SupportPage() {
+    return `${Nav('support')}
+    <div style="padding-top:110px;padding-bottom:80px;padding-left:24px;padding-right:24px;min-height:100vh;">
+        <div style="max-width:720px;margin:0 auto;" class="anim-fadeUp">
+            <button onclick="goto('landing')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;margin-bottom:36px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">← Back to home</button>
+            <div class="badge" style="display:inline-block;margin-bottom:20px;">Support</div>
+            <h1 style="font-family:'Sora',sans-serif;font-size:clamp(32px,5vw,54px);font-weight:700;line-height:1.1;margin-bottom:20px;">We're here to <span class="text-aurora">help</span></h1>
+            <p style="color:var(--text-secondary);font-size:17px;line-height:1.8;margin-bottom:36px;">Get support for using Digital Mental Health Platform or managing your mental health.</p>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Contact us</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">Email: support@digitalmentalhealth.com<br>Response time: Within 24 hours</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">Crisis support</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">If you're in crisis, please contact emergency services or a crisis hotline immediately. This platform is not a substitute for professional help.</p>
+            </div>
+
+            <div class="glass" style="border-radius:20px;padding:32px;margin-bottom:28px;">
+                <h2 style="font-family:'Sora',sans-serif;font-size:20px;font-weight:600;margin-bottom:14px;">FAQs</h2>
+                <p style="color:var(--text-secondary);line-height:1.8;">Check our FAQ section on the landing page for common questions and answers.</p>
             </div>
         </div>
     </div>`;
@@ -971,6 +1097,9 @@ function render() {
         case 'dashboard': app.innerHTML = DashboardPage(); setTimeout(buildChart, 80); break;
         case 'chatbot':   app.innerHTML = ChatbotPage();   setTimeout(renderChatMessages, 50); break;
         case 'profile':   app.innerHTML = ProfilePage();   break;
+        case 'privacy':   app.innerHTML = PrivacyPage();   break;
+        case 'terms':     app.innerHTML = TermsPage();     break;
+        case 'support':   app.innerHTML = SupportPage();   break;
         default:          app.innerHTML = LandingPage();
     }
 
