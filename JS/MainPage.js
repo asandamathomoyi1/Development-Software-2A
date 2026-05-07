@@ -49,6 +49,34 @@ function signup(name, email, password) {
     goto('login'); return true;
 }
 
+function handleGoogleSignIn(response) {
+    // Decode the JWT token to get user info
+    const responsePayload = decodeJwtResponse(response.credential);
+    const name = responsePayload.name;
+    const email = responsePayload.email;
+    const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
+    let user = users.find(u => u.email === email);
+    if (!user) {
+        user = { id: Date.now().toString(), name, email, password: 'google_oauth' };
+        users.push(user);
+        localStorage.setItem('ms_users', JSON.stringify(users));
+        syncUserToAdmin(user, 'google_oauth');
+    }
+    currentUser = { id: user.id, email: user.email, name: user.name };
+    localStorage.setItem('ms_user', JSON.stringify(currentUser));
+    moodHistory = []; chatMessages = []; load();
+    goto('dashboard');
+}
+
+function decodeJwtResponse(token) {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
+
 function subscribeNewsletter() {
     const email = document.getElementById('newsletterEmail').value;
     const messageEl = document.getElementById('newsletterMessage');
@@ -817,6 +845,9 @@ function SignupPage() {
                         <div class="progress-container"><div id="signupPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div id="signupError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
+                    <div style="margin:16px 0;text-align:center;">
+                        <div id="googleSignupButton"></div>
+                    </div>
                     <button onclick="handleSignup()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Create free account</button>
                     <p style="color:var(--text-muted);font-size:12px;text-align:center;">By signing up you agree to our Terms and Privacy Policy.</p>
                 </div>
@@ -1103,12 +1134,45 @@ function render() {
         default:          app.innerHTML = LandingPage();
     }
 
+    renderGoogleButtons();
+
     // Enable submit button after re-render if mood was selected
     const submitBtn = document.getElementById('submitMoodBtn');
     if (submitBtn && selectedMood) {
         submitBtn.disabled = false;
         submitBtn.style.opacity = '1';
         document.querySelector(`.mood-btn[data-mood="${selectedMood}"]`)?.classList.add('selected');
+    }
+}
+
+function initGoogleSignInMainPage() {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+        google.accounts.id.initialize({
+            client_id: '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com',
+            callback: handleGoogleSignIn
+        });
+    }
+}
+
+function renderGoogleButtons() {
+    if (!(window.google && window.google.accounts && window.google.accounts.id)) return;
+    const loginButton = document.getElementById('googleLoginButton');
+    const signupButton = document.getElementById('googleSignupButton');
+    if (loginButton) {
+        google.accounts.id.renderButton(loginButton, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signin_with'
+        });
+    }
+    if (signupButton) {
+        google.accounts.id.renderButton(signupButton, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'signup_with'
+        });
     }
 }
 

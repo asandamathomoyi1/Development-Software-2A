@@ -10,6 +10,9 @@ const session = require('express-session');
 const app = express();
 const ADMIN_USERNAME = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASS || 'admin123';
+const ADMIN_GOOGLE_EMAILS = process.env.ADMIN_GOOGLE_EMAIL
+  ? process.env.ADMIN_GOOGLE_EMAIL.split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+  : [];
 const PORT = process.env.PORT || 3001;
 
 // Middleware
@@ -122,16 +125,113 @@ async function sendOTPEmail(email, otp) {
 
 // Routes
 
+function getUserName(user) {
+  return user.name || user.username || user.email.split('@')[0] || 'User';
+}
+
+function findUserByEmail(email) {
+  return users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+}
+
+function createOrFindOauthUser(provider, providerId, email, name) {
+  let user = findUserByEmail(email);
+  if (user) {
+    user.provider = provider;
+    user.providerId = providerId;
+    saveUsers();
+    return user;
+  }
+  const id = Date.now().toString();
+  user = { id, email, password: `${provider}_oauth`, provider, providerId, name: name || getUserName({ email }) };
+  users.push(user);
+  saveUsers();
+  return user;
+}
+
+async function verifyGoogleToken(idToken) {
+  if (!idToken) throw new Error('Missing Google ID token');
+  const googleClientId = process.env.GOOGLE_CLIENT_ID || '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com';
+  const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Invalid Google token');
+  const payload = await response.json();
+  if (googleClientId && payload.aud !== googleClientId) {
+    throw new Error('Token audience does not match Google client ID');
+  }
+  return payload;
+}
+
 // Register user
 app.post('/register', (req, res) => {
-  const { id, name, email, password } = req.body;
+  const { id, name, username, email, password } = req.body;
+  const displayName = name || username || (email ? email.split('@')[0] : 'User');
   const existingUser = users.find(u => u.email === email);
   if (existingUser) {
     return res.status(400).json({ error: 'User already exists' });
   }
-  users.push({ id, name, email, password });
+  users.push({ id, name: displayName, email, password });
   saveUsers();
   res.json({ success: true });
+});
+
+// Local login
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  if (!user || user.password !== password) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+  req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+  res.json({ success: true, user: req.session.user });
+});
+
+function isAdminGoogleEmail(email) {
+  if (!email) return false;
+  if (ADMIN_GOOGLE_EMAILS.length === 0) return true;
+  return ADMIN_GOOGLE_EMAILS.includes(String(email).toLowerCase());
+}
+
+// OAuth login for Google
+app.options('/oauth/google', cors());
+app.post('/oauth/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    const payload = await verifyGoogleToken(idToken);
+    const user = createOrFindOauthUser('google', payload.sub, payload.email, payload.name || payload.email.split('@')[0]);
+    req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+    res.json({ success: true, user: req.session.user });
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.status(400).json({ error: error.message || 'Google OAuth failed' });
+  }
+});
+
+app.options('/oauth/google-admin', cors());
+app.post('/oauth/google-admin', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    const payload = await verifyGoogleToken(idToken);
+    if (!isAdminGoogleEmail(payload.email)) {
+      return res.status(403).json({ error: 'Google account is not authorized for admin access' });
+    }
+    req.session.is_admin = true;
+    req.session.last_activity = Date.now();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin Google OAuth error:', error);
+    res.status(400).json({ error: error.message || 'Google admin OAuth failed' });
+  }
+});
+
+// OAuth login for Apple/iCloud
+app.post('/oauth/apple', (req, res) => {
+  const { email, name, providerId } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required for Apple login' });
+  }
+  const user = createOrFindOauthUser('apple', providerId || email, email, name || email.split('@')[0]);
+  req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+  res.json({ success: true, user: req.session.user });
 });
 
 // Admin login page

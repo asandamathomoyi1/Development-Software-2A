@@ -1,5 +1,5 @@
 {
-  "siteTitle": "Digitala Mental Health Platform",
-  "adminEmail": "admin@digitalamentalhealthplatform.com",
-  "sessionTimeout": 30
+  "siteTitle": "Digital Mental Health Platform",
+  "adminEmail": "admin@digitalmentalhealthplatform.com",
+  "sessionTimeout": "30"
 }

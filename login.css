@@ -1,0 +1,78 @@
+.login-container {
+  width: min(420px, calc(100% - 32px));
+  margin: 72px auto;
+  padding: 32px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.12);
+  font-family: 'Poppins', sans-serif;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  font-size: 24px;
+  color: #111827;
+  text-align: center;
+}
+
+.login-container input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  outline: none;
+}
+
+.login-container input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.login-container button[type='submit'],
+#appleSignInButton {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.login-container button[type='submit'] {
+  background: #4f46e5;
+  color: white;
+}
+
+#appleSignInButton {
+  background: #111827;
+  color: white;
+  margin-top: 10px;
+}
+
+.oauth-section {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 10px;
+}
+
+.forgot,
+.login-container p {
+  text-align: center;
+  font-size: 14px;
+  margin: 10px 0 0;
+}
+
+.login-container a {
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.login-message {
+  min-height: 22px;
+  margin-top: 12px;
+  text-align: center;
+  font-size: 14px;
+}
