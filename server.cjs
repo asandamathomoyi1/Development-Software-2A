@@ -6,17 +6,17 @@ if (!admin.apps.length) {
 }
 
 const serviceAccount = require("./digital-mental-health-pl-7df78-firebase-adminsdk-fbsvc-b5a9543bbb.json");
-import express from 'express';
-import bodyParser from 'body-parser';
-import cors from 'cors';
+const express = require("express");;
+const bodyParser = require("body-parser");;
+const cors = require("cors");;
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import session from 'express-session';
+const session = require("express-session");;
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { admin, db } from './firebase-admin-config.js';
+const admin = require("firebase-admin");
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import 'dotenv/config';
 

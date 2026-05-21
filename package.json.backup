@@ -1,7 +1,7 @@
 {
   "name": "digital-mental-health-platform",
   "version": "1.0.0",
-  
+  "type": "module",
   "description": "A platform for mental health tracking and AI companion",
   "main": "server.js",
   "scripts": {
