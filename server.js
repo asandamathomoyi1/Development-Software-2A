@@ -9,12 +9,8 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
 
-const serviceAccount = require('./digital-mental-health-pl-7df78-firebase-adminsdk-fbsvc-b5a9543bbb.json');
-
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
+  admin.initializeApp(); // No credentials file needed!
 }
 
 const db = admin.firestore();
