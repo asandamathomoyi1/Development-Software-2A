@@ -9,6 +9,8 @@ import session from 'express-session';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { admin, db } from './firebase-admin-config.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import 'dotenv/config';
 
 // Create __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -18,20 +20,27 @@ const app = express();
 const ADMIN_USERNAME = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASS || 'admin123';
 const ADMIN_GOOGLE_EMAILS = process.env.ADMIN_GOOGLE_EMAIL
-  ? process.env.ADMIN_GOOGLE_EMAIL.split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+  ? process.env.ADMIN_GOOGLE_EMAIL.split(',')
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean)
   : [];
 const PORT = process.env.PORT || 3001;
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
-  secret: 'your-secret-key', // Change this to a secure key
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false } // Set to true if using HTTPS
-}));
+app.use(
+  session({
+    secret: 'your-secret-key', // Change this to a secure key
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }, // Set to true if using HTTPS
+  })
+);
 
 // Serve static files
 app.use(express.static(path.join(__dirname)));
@@ -44,7 +53,10 @@ app.get('/', (req, res) => {
 // Middleware to check admin auth
 function requireAdmin(req, res, next) {
   const sessionTimeout = 1800 * 1000; // 30 minutes
-  if (!req.session.is_admin || (Date.now() - req.session.last_activity) > sessionTimeout) {
+  if (
+    !req.session.is_admin ||
+    Date.now() - req.session.last_activity > sessionTimeout
+  ) {
     return res.redirect('/admin-login.html?error=expired');
   }
   req.session.last_activity = Date.now();
@@ -56,8 +68,8 @@ const transporter = nodemailer.createTransport({
   service: 'gmail', // or your email service
   auth: {
     user: process.env.EMAIL_USER || 'your-email@gmail.com',
-    pass: process.env.EMAIL_PASS || 'your-app-password'
-  }
+    pass: process.env.EMAIL_PASS || 'your-app-password',
+  },
 });
 
 // In-memory storage for simplicity (use database in production)
@@ -70,7 +82,7 @@ async function initializeData() {
   try {
     // Load users
     const usersSnapshot = await db.collection('users').get();
-    users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    users = usersSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     console.log(`Loaded ${users.length} users from Firestore`);
   } catch (err) {
     console.log('Error loading users from Firestore:', err);
@@ -78,7 +90,10 @@ async function initializeData() {
 
   try {
     // Load admin settings
-    const settingsDoc = await db.collection('admin_settings').doc('config').get();
+    const settingsDoc = await db
+      .collection('admin_settings')
+      .doc('config')
+      .get();
     if (settingsDoc.exists) {
       adminSettings = settingsDoc.data();
     }
@@ -90,7 +105,6 @@ async function initializeData() {
 
 // Initialize data on startup
 initializeData();
-
 
 // Helper functions
 function parseMoodValue(mood) {
@@ -137,7 +151,7 @@ async function saveUsers() {
   try {
     // Save each user to Firestore
     const batch = db.batch();
-    users.forEach(user => {
+    users.forEach((user) => {
       const userRef = db.collection('users').doc(user.id);
       batch.set(userRef, user, { merge: true });
     });
@@ -151,7 +165,10 @@ async function saveUsers() {
 // Save admin settings to Firestore
 async function saveAdminSettings() {
   try {
-    await db.collection('admin_settings').doc('config').set(adminSettings, { merge: true });
+    await db
+      .collection('admin_settings')
+      .doc('config')
+      .set(adminSettings, { merge: true });
     console.log('Admin settings saved to Firestore');
   } catch (err) {
     console.error('Error saving admin settings to Firestore:', err);
@@ -171,7 +188,9 @@ function parseMoodEntryDate(entry) {
     if (!Number.isNaN(parsedDate.getTime())) return parsedDate;
   }
   if (entry.createdAt) {
-    const parsedCreated = entry.createdAt.toDate ? entry.createdAt.toDate() : new Date(entry.createdAt);
+    const parsedCreated = entry.createdAt.toDate
+      ? entry.createdAt.toDate()
+      : new Date(entry.createdAt);
     if (!Number.isNaN(parsedCreated.getTime())) return parsedCreated;
   }
   return new Date(0);
@@ -179,20 +198,27 @@ function parseMoodEntryDate(entry) {
 
 async function getMoodEntriesForUser(userId) {
   if (!userId) return [];
-  const snapshot = await db.collection('mood_entries')
+  const snapshot = await db
+    .collection('mood_entries')
     .where('userId', '==', String(userId))
     .get();
   // Sort in JavaScript to avoid requiring composite index
   return snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime());
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort(
+      (a, b) =>
+        parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
+    );
 }
 
 async function getAllMoodEntries() {
   const snapshot = await db.collection('mood_entries').get();
   return snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime());
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort(
+      (a, b) =>
+        parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
+    );
 }
 
 async function deleteMoodEntryById(entryId) {
@@ -211,7 +237,7 @@ async function sendOTPEmail(email, otp) {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Your OTP Code',
-    text: `Your OTP code is: ${otp}. It expires in 10 minutes.`
+    text: `Your OTP code is: ${otp}. It expires in 10 minutes.`,
   };
 
   try {
@@ -229,7 +255,9 @@ function getUserName(user) {
 }
 
 function findUserByEmail(email) {
-  return users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  return users.find(
+    (u) => u.email.toLowerCase() === String(email).toLowerCase()
+  );
 }
 
 async function createOrFindOauthUser(provider, providerId, email, name) {
@@ -241,7 +269,14 @@ async function createOrFindOauthUser(provider, providerId, email, name) {
     return user;
   }
   const id = Date.now().toString();
-  user = { id, email, password: `${provider}_oauth`, provider, providerId, name: name || getUserName({ email }) };
+  user = {
+    id,
+    email,
+    password: `${provider}_oauth`,
+    provider,
+    providerId,
+    name: name || getUserName({ email }),
+  };
   users.push(user);
   await saveUsers();
   return user;
@@ -249,7 +284,9 @@ async function createOrFindOauthUser(provider, providerId, email, name) {
 
 async function verifyGoogleToken(idToken) {
   if (!idToken) throw new Error('Missing Google ID token');
-  const googleClientId = process.env.GOOGLE_CLIENT_ID || '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com';
+  const googleClientId =
+    process.env.GOOGLE_CLIENT_ID ||
+    '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com';
   const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error('Invalid Google token');
@@ -264,12 +301,18 @@ async function verifyGoogleToken(idToken) {
 app.post('/register', async (req, res) => {
   try {
     const { id, name, username, email, password } = req.body;
-    const displayName = name || username || (email ? email.split('@')[0] : 'User');
-    const existingUser = users.find(u => u.email === email);
+    const displayName =
+      name || username || (email ? email.split('@')[0] : 'User');
+    const existingUser = users.find((u) => u.email === email);
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
-    const newUser = { id: id || Date.now().toString(), name: displayName, email, password };
+    const newUser = {
+      id: id || Date.now().toString(),
+      name: displayName,
+      email,
+      password,
+    };
     users.push(newUser);
     await saveUsers();
     res.json({ success: true });
@@ -282,11 +325,17 @@ app.post('/register', async (req, res) => {
 // Local login
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+  const user = users.find(
+    (u) => u.email.toLowerCase() === String(email).toLowerCase()
+  );
   if (!user || user.password !== password) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
-  req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+  req.session.user = {
+    id: user.id,
+    email: user.email,
+    name: getUserName(user),
+  };
   res.json({ success: true, user: req.session.user });
 });
 
@@ -302,8 +351,17 @@ app.post('/oauth/google', async (req, res) => {
   try {
     const { idToken } = req.body;
     const payload = await verifyGoogleToken(idToken);
-    const user = await createOrFindOauthUser('google', payload.sub, payload.email, payload.name || payload.email.split('@')[0]);
-    req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+    const user = await createOrFindOauthUser(
+      'google',
+      payload.sub,
+      payload.email,
+      payload.name || payload.email.split('@')[0]
+    );
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: getUserName(user),
+    };
     res.json({ success: true, user: req.session.user });
   } catch (error) {
     console.error('Google OAuth error:', error);
@@ -317,16 +375,27 @@ app.get('/mood-entries', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ error: 'Missing userId' });
     }
-    const snapshot = await db.collection('mood_entries')
+    const snapshot = await db
+      .collection('mood_entries')
       .where('userId', '==', userId)
       .limit(100)
       .get();
-    let entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    entries = entries.sort((a, b) => {
-      const aTs = a.timestamp ? a.timestamp.toMillis ? a.timestamp.toMillis() : Date.parse(a.date || '') : 0;
-      const bTs = b.timestamp ? b.timestamp.toMillis ? b.timestamp.toMillis() : Date.parse(b.date || '') : 0;
-      return bTs - aTs;
-    }).slice(0, 30);
+    let entries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    entries = entries
+      .sort((a, b) => {
+        const aTs = a.timestamp
+          ? a.timestamp.toMillis
+            ? a.timestamp.toMillis()
+            : Date.parse(a.date || '')
+          : 0;
+        const bTs = b.timestamp
+          ? b.timestamp.toMillis
+            ? b.timestamp.toMillis()
+            : Date.parse(b.date || '')
+          : 0;
+        return bTs - aTs;
+      })
+      .slice(0, 30);
     res.json({ success: true, entries });
   } catch (error) {
     console.error('Load mood entries error:', error);
@@ -348,12 +417,33 @@ app.post('/mood-entry', async (req, res) => {
       moodLabel: normalizedMoodLabel,
       feeling: feeling || '',
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      date: new Date().toLocaleDateString()
+      date: new Date().toLocaleDateString(),
     });
     res.json({ success: true, id: docRef.id });
   } catch (error) {
     console.error('Save mood entry error:', error);
     res.status(500).json({ error: 'Failed to save mood entry' });
+  }
+});
+
+// Gemini chatbot endpoint
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, userId } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const response = await model.generateContent(message);
+    const reply = response.response.text();
+
+    res.json({ reply, success: true });
+  } catch (error) {
+    console.error('Gemini API error:', error);
+    res
+      .status(500)
+      .json({ error: 'Failed to generate response', details: error.message });
   }
 });
 
