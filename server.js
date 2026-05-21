@@ -1,8 +1,14 @@
+require("dotenv").config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 const nodemailer = require('nodemailer');
