@@ -1,3 +1,45 @@
+// ===== MAIN PAGE =====
+console.log('MainPage.js module loaded');
+
+const BACKEND_URL = (() => {
+    const origin = window.location.origin;
+    if (origin.includes(':3001')) return origin;
+    if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+        return 'http://localhost:3001';
+    }
+    return origin;
+})();
+
+async function parseJsonResponse(response) {
+    const raw = await response.text();
+    if (!raw) {
+        return null;
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        throw new Error(`Invalid JSON response from server: ${raw.substr(0, 300)}`);
+    }
+}
+
+async function fetchUserMoodEntries(userId) {
+    const response = await fetch(`${BACKEND_URL}/mood-entries?userId=${encodeURIComponent(userId)}`);
+    const data = await parseJsonResponse(response);
+    if (!response.ok) throw new Error(data?.error || 'Could not load mood entries');
+    return data.entries || [];
+}
+
+async function addMoodEntry(userId, mood, moodLabel, feeling) {
+    const response = await fetch(`${BACKEND_URL}/mood-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, mood, moodLabel, feeling })
+    });
+    const data = await parseJsonResponse(response);
+    if (!response.ok) throw new Error(data?.error || 'Could not save mood entry');
+    return data;
+}
+
 // ===== STATE =====
 let currentUser = null, currentPage = 'landing';
 let moodHistory = [], chatMessages = [];
@@ -21,6 +63,8 @@ function load() {
     }
 }
 
+// ===== COMMENT OUT YOUR OLD login() FUNCTION =====
+/*
 function login(email, password) {
     const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
     const u = users.find(u => u.email === email && u.password === password);
@@ -30,25 +74,101 @@ function login(email, password) {
     moodHistory = []; chatMessages = []; load();
     goto('dashboard'); return true;
 }
-function syncUserToAdmin(user, password) {
-    fetch('/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, name: user.name, email: user.email, password })
-    }).catch(() => {
-        // Keep app working even if server sync fails
-    });
+*/
+
+// ===== ADD THIS NEW login() FUNCTION =====
+async function login(email, password) {
+    try {
+        const response = await fetch(`${BACKEND_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok) throw new Error(data?.error || 'Login failed');
+
+        currentUser = data.user;
+        localStorage.setItem('ms_user', JSON.stringify(currentUser));
+        const entries = await fetchUserMoodEntries(currentUser.id);
+        moodHistory = entries.map(e => ({ 
+            date: e.date,
+            mood: e.mood,
+            feeling: e.feeling,
+            timestamp: Date.now()
+        }));
+
+        goto('dashboard');
+        return true;
+    } catch (error) {
+        showError(document.getElementById('loginError'), error.message);
+        return false;
+    }
 }
 
-function signup(name, email, password) {
-    const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
-    if (users.some(u => u.email === email)) return false;
-    const nu = { id: Date.now().toString(), name, email, password };
-    users.push(nu); localStorage.setItem('ms_users', JSON.stringify(users));
-    syncUserToAdmin(nu, password);
-    goto('login'); return true;
+// ===== COMMENT OUT YOUR OLD signup() FUNCTION =====
+/*
+async function signup(name, email, password) {
+    try {
+        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+        const { auth } = await import('/firebase-config.js?v=1');
+        const { saveUserToFirestore } = await import('/firebase-config.js?v=1');
+        
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        // Update user profile with display name
+        await updateProfile(user, { displayName: name });
+        
+        // Save user to Firestore
+        await saveUserToFirestore(user.uid, name, email);
+        
+        // Set current user
+        currentUser = { 
+            id: user.uid, 
+            email: user.email, 
+            name: name 
+        };
+        localStorage.setItem('ms_user', JSON.stringify(currentUser));
+        
+        // Sync with server
+        syncUserToAdmin(currentUser, password);
+        
+        goto('login');
+        return true;
+    } catch (error) {
+        console.error('Signup error:', error);
+        showError(document.getElementById('signupError'), error.message);
+        return false;
+    }
+}
+*/
+
+// ===== ADD THIS NEW signup() FUNCTION =====
+async function signup(name, email, password) {
+    try {
+        const response = await fetch(`${BACKEND_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password })
+        });
+        const data = await parseJsonResponse(response);
+        if (!response.ok) throw new Error(data?.error || 'Registration failed');
+
+        const loggedIn = await login(email, password);
+        if (loggedIn) {
+            // User registration is persisted through the backend already.
+        }
+        return loggedIn;
+    } catch (error) {
+        showError(document.getElementById('signupError'), error.message);
+        return false;
+    }
 }
 
+// ======================== GOOGLE OAUTH ========================
+
+// ===== COMMENT OUT YOUR OLD handleGoogleSignIn() FUNCTION =====
+/*
 function handleGoogleSignIn(response) {
     // Decode the JWT token to get user info
     const responsePayload = decodeJwtResponse(response.credential);
@@ -67,64 +187,63 @@ function handleGoogleSignIn(response) {
     moodHistory = []; chatMessages = []; load();
     goto('dashboard');
 }
+*/
 
-function decodeJwtResponse(token) {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-}
-
-function subscribeNewsletter() {
-    const email = document.getElementById('newsletterEmail').value;
-    const messageEl = document.getElementById('newsletterMessage');
-    if (!email) {
-        messageEl.innerHTML = '<div style="color:#ef4444;">Please enter an email.</div>';
+// ===== ADD THIS NEW handleGoogleCredentialResponse() FUNCTION =====
+async function handleGoogleCredentialResponse(response) {
+    if (!response?.credential) {
+        showError(document.getElementById('loginError') || document.getElementById('signupError'), 'Google sign-in failed. Please try again.');
         return;
     }
-    fetch('/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            messageEl.innerHTML = '<div style="color:#22c55e;">OTP sent! Check your email.</div>';
-            // Prompt for OTP
-            const otp = prompt('Enter the OTP from your email:');
-            if (otp) {
-                fetch('/verify-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, otp })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        messageEl.innerHTML = '<div style="color:#22c55e;">Subscribed successfully!</div>';
-                    } else {
-                        messageEl.innerHTML = '<div style="color:#ef4444;">Invalid OTP.</div>';
-                    }
-                });
-            }
-        } else {
-            messageEl.innerHTML = '<div style="color:#ef4444;">Error subscribing.</div>';
-        }
-    });
+    try {
+        const res = await fetch(`${BACKEND_URL}/oauth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: response.credential })
+        });
+        const data = await parseJsonResponse(res);
+        if (!res.ok) throw new Error(data?.error || 'Google login failed');
+
+        currentUser = data.user;
+        localStorage.setItem('ms_user', JSON.stringify(currentUser));
+        const entries = await fetchUserMoodEntries(currentUser.id);
+        moodHistory = entries.map(e => ({ 
+            date: e.date,
+            mood: e.mood,
+            feeling: e.feeling,
+            timestamp: Date.now()
+        }));
+
+        goto('dashboard');
+    } catch (error) {
+        console.error('Google login error:', error);
+        showError(document.getElementById('loginError') || document.getElementById('signupError'), error.message || 'Google sign-in failed.');
+    }
 }
+
 function isPasswordStrong(password) {
     return typeof password === 'string'
         && password.length >= 8
         && /[0-9]/.test(password)
         && /[^A-Za-z0-9]/.test(password);
 }
+
+// ===== COMMENT OUT YOUR OLD logout() FUNCTION =====
+/*
 function logout() {
     currentUser = null; localStorage.removeItem('ms_user');
     moodHistory = []; chatMessages = []; goto('landing');
 }
+*/
+
+// ===== ADD THIS NEW logout() FUNCTION =====
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('ms_user');
+    moodHistory = [];
+    goto('landing');
+}
+
 function goto(page) { currentPage = page; render(); window.scrollTo(0,0); }
 
 const moodOptions = [
@@ -267,10 +386,38 @@ function selectMoodBtn(val) {
     if (btn) btn.disabled = false;
 }
 
+// ===== COMMENT OUT YOUR OLD submitMood() FUNCTION =====
+/*
 function submitMood() {
     if (!selectedMood) return;
     moodHistory.push({ date: new Date().toLocaleDateString(), mood: selectedMood, feeling: document.getElementById('moodFeeling')?.value||'', timestamp: Date.now() });
     save(); selectedMood = null; goto('dashboard');
+}
+*/
+
+// ===== ADD THIS NEW submitMood() FUNCTION =====
+async function submitMood() {
+    if (!selectedMood || !currentUser) return;
+    const feeling = document.getElementById('moodFeeling')?.value || '';
+    const moodLabels = {1:'Very Low', 2:'Low', 3:'Neutral', 4:'Good', 5:'Great'};
+    
+    try {
+        await addMoodEntry(currentUser.id, selectedMood, moodLabels[selectedMood], feeling);
+        
+        moodHistory.unshift({ 
+            date: new Date().toLocaleDateString(), 
+            mood: selectedMood, 
+            feeling: feeling,
+            timestamp: Date.now()
+        });
+        
+        save(); // Keep your existing save function
+        selectedMood = null;
+        goto('dashboard');
+    } catch (error) {
+        console.error('Error saving mood:', error);
+        alert('Failed to save mood. Please try again.');
+    }
 }
 
 function buildChart() {
@@ -321,29 +468,31 @@ function showError(el, msg) {
     setTimeout(() => el.classList.add('hidden'), 4500);
 }
 
-function handleLogin() {
+async function handleLogin() {
     const email = document.getElementById('loginEmail')?.value?.trim();
     const pw    = document.getElementById('loginPassword')?.value;
     const err   = document.getElementById('loginError');
     if (!email || !pw) { showError(err, 'Please fill in all fields.'); return; }
-    if (login(email, pw)) {
-        syncUserToAdmin(currentUser, pw);
-    } else {
+
+    const success = await login(email, pw);
+    if (!success) {
         showError(err, 'Incorrect email or password.');
     }
 }
-function handleSignup() {
+async function handleSignup() {
     const name  = document.getElementById('signupName')?.value?.trim();
     const email = document.getElementById('signupEmail')?.value?.trim();
     const pw    = document.getElementById('signupPassword')?.value;
     const err   = document.getElementById('signupError');
-    if (!name||!email||!pw) { showError(err,'Please fill in all fields.'); return; }
-    if (!isPasswordStrong(pw)) { showError(err,'Password must be at least 8 characters and include one number and one special character.'); return; }
-    if (signup(name,email,pw)) {
-        showError(err,'Account created successfully! Please log in.');
-        setTimeout(() => goto('login'), 1500);
+    if (!name || !email || !pw) { showError(err, 'Please fill in all fields.'); return; }
+    if (!isPasswordStrong(pw)) { showError(err, 'Password must be at least 8 characters and include one number and one special character.'); return; }
+
+    const success = await signup(name, email, pw);
+    if (success) {
+        showError(err, 'Account created successfully! You are signed in.');
+        setTimeout(() => goto('dashboard'), 1200);
     } else {
-        showError(err,'An account with this email already exists.');
+        showError(err, 'An account with this email already exists.');
     }
 }
 function handleResetPassword() {
@@ -803,6 +952,7 @@ function LoginPage() {
                     </div>
                     <div id="loginError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
                     <button onclick="handleLogin()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Sign in</button>
+                    <div id="googleLoginButton" style="margin-top:14px;"></div>
                 </div>
 
                 <div style="margin-top:22px;text-align:center;">
@@ -845,10 +995,8 @@ function SignupPage() {
                         <div class="progress-container"><div id="signupPasswordProgress" class="progress-bar"></div></div>
                     </div>
                     <div id="signupError" style="color:#f87171;font-size:13px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);padding:10px 14px;border-radius:8px;" class="hidden"></div>
-                    <div style="margin:16px 0;text-align:center;">
-                        <div id="googleSignupButton"></div>
-                    </div>
-                    <button onclick="handleSignup()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:4px;">Create free account</button>
+                    <div id="googleSignupButton" style="margin-top:14px;"></div>
+                    <button onclick="handleSignup()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;cursor:pointer;margin-top:8px;">Create free account</button>
                     <p style="color:var(--text-muted);font-size:12px;text-align:center;">By signing up you agree to our Terms and Privacy Policy.</p>
                 </div>
 
@@ -1149,8 +1297,11 @@ function initGoogleSignInMainPage() {
     if (window.google && window.google.accounts && window.google.accounts.id) {
         google.accounts.id.initialize({
             client_id: '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com',
-            callback: handleGoogleSignIn
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
         });
+        renderGoogleButtons();
     }
 }
 
@@ -1185,3 +1336,19 @@ function renderGoogleButtons() {
     }
     render();
 })();
+
+// Expose functions to global scope for inline onclick handlers (module -> window)
+window.goto = goto;
+window.subscribeNewsletter = subscribeNewsletter;
+window.logout = logout;
+window.scrollToSection = scrollToSection;
+window.submitChat = submitChat;
+window.handleLogin = handleLogin;
+window.handleSignup = handleSignup;
+window.handleResetPassword = handleResetPassword;
+window.selectMoodBtn = selectMoodBtn;
+window.submitMood = submitMood;
+window.handleGoogleCredentialResponse = handleGoogleCredentialResponse;
+window.initGoogleSignInMainPage = initGoogleSignInMainPage;
+window.save = save;
+window.load = load;

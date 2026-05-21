@@ -209,7 +209,7 @@ button {
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
-.card {
+..card {
     padding: 24px;
 }
 
@@ -220,6 +220,12 @@ button {
     font-size: 1.15rem;
 }
 
+.card .stat-value {
+    font-size: 2.35rem;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
 .card p,
 .card span,
 .card td,
@@ -227,10 +233,83 @@ button {
     color: var(--muted);
 }
 
-.card .stat-value {
-    font-size: 2.35rem;
+.chart-section {
+    padding: 24px;
+    margin-bottom: 24px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+}
+
+.chart-section h2 {
+    margin-bottom: 18px;
+}
+
+.chart-section canvas {
+    width: 100% !important;
+    max-width: 640px;
+    max-height: 420px;
+    min-height: 320px;
+    height: 340px;
+    aspect-ratio: 16 / 9;
+    display: block;
+    margin: 0 auto;
+}
+
+.chart-section .chart-wrapper {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+
+.user-details,
+.mood-entries-section {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.user-details h2,
+.mood-entries-section h2 {
+    margin-top: 0;
+    margin-bottom: 18px;
     color: #fff;
+}
+
+.user-details form {
+    display: grid;
+    gap: 16px;
+}
+
+.user-details label,
+.mood-entries-section label {
+    display: block;
     margin-bottom: 8px;
+    font-size: 0.95rem;
+    color: var(--muted);
+}
+
+.user-details input,
+.mood-entries-section input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+}
+
+.user-details .btn-secondary,
+.mood-entries-section .btn-secondary {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+}
+
+.user-details .btn-secondary:hover,
+.mood-entries-section .btn-secondary:hover {
+    background: rgba(255,255,255,0.14);
 }
 
 .table-wrapper {
