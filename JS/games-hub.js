@@ -335,7 +335,7 @@ function checkMemoryMatch() {
  * Puzzle game implementation (15-puzzle)
  */
 function renderPuzzleGame(game) {
-  initPuzzle();
+  initPuzzleState();
 
   return `
     <div class="game-container">
@@ -348,7 +348,7 @@ function renderPuzzleGame(game) {
         </div>
       </div>
       <div class="puzzle-game-area">
-        <canvas id="puzzleCanvas" width="400" height="400" class="puzzle-canvas"></canvas>
+        <canvas id="puzzleCanvas" width="400" height="400" class="puzzle-canvas" onclick="window.handlePuzzleCanvasClick(event)"></canvas>
         <div class="puzzle-instructions">Click on tiles adjacent to the empty space to move them!</div>
         <button class="btn-secondary" onclick="window.shufflePuzzle()">Shuffle</button>
       </div>
@@ -357,7 +357,7 @@ function renderPuzzleGame(game) {
   `;
 }
 
-function initPuzzle() {
+function initPuzzleState() {
   puzzleState.tiles = Array.from({ length: 16 }, (_, i) => i);
   puzzleState.emptyIndex = 15;
   puzzleState.moves = 0;
@@ -430,7 +430,7 @@ export function checkPuzzleComplete() {
   }
 }
 
-function drawPuzzleCanvas() {
+export function drawPuzzleCanvas() {
   const canvas = document.getElementById('puzzleCanvas');
   if (!canvas) return;
 
@@ -466,6 +466,19 @@ function updatePuzzleStats() {
       <button class="btn-secondary" onclick="window.exitGame()">Exit</button>
     `;
   }
+}
+
+export function handlePuzzleCanvasClick(event) {
+  const canvas = event.currentTarget;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const col = Math.floor(x / 100);
+  const row = Math.floor(y / 100);
+  if (col < 0 || col > 3 || row < 0 || row > 3) return;
+  const index = row * 4 + col;
+  puzzleTileClick(index);
 }
 
 /**
@@ -536,8 +549,6 @@ function renderFocusGame(game) {
     timeoutId: null,
   };
 
-  startFocusRound();
-
   return `
     <div class="game-container">
       <div class="game-header">
@@ -565,7 +576,7 @@ function renderFocusGame(game) {
   `;
 }
 
-function startFocusRound() {
+export function startFocusRound() {
   focusState.round++;
   updateFocusStats();
 
@@ -700,7 +711,15 @@ function renderCurrentTriviaQuestion(game) {
   if (!question || triviaState.currentQuestionIndex >= 5) {
     // Game complete
     const points = 50 + triviaState.score;
-    return window.completeGame(points);
+    setTimeout(() => window.completeGame(points), 0);
+    return `
+      <div class="loading-overlay">
+        <div style="text-align:center;">
+          <div class="spinner"></div>
+          <p class="loading-text">Finishing trivia... Great work.</p>
+        </div>
+      </div>
+    `;
   }
 
   return `
@@ -1013,15 +1032,4 @@ export function exitGame() {
   return renderGamesHub();
 }
 
-// Export all functions for global access
-export {
-  flipMemoryCard,
-  puzzleTileClick,
-  shufflePuzzle,
-  checkPuzzleComplete,
-  selectColor,
-  colorSection,
-  completeColoringGame,
-  focusButtonPress,
-  selectTriviaAnswer,
-};
+// Functions are exported inline where declared; no final aggregated export needed.

@@ -12,7 +12,10 @@ const path = require('path');
 // Initialize Firebase Admin
 if (!admin.apps.length) {
   try {
-    const serviceAccount = require('./serviceAccountKey.json');
+    const serviceAccountPath =
+      process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+      './.secrets/serviceAccountKey.json';
+    const serviceAccount = require(path.resolve(__dirname, serviceAccountPath));
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });

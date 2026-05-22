@@ -20,6 +20,18 @@ import {
   exitGame,
   getRecommendedGames,
   initGamesHub,
+  flipMemoryCard,
+  puzzleTileClick,
+  shufflePuzzle,
+  checkPuzzleComplete,
+  handlePuzzleCanvasClick,
+  drawPuzzleCanvas,
+  selectColor,
+  colorSection,
+  completeColoringGame,
+  focusButtonPress,
+  startFocusRound,
+  selectTriviaAnswer,
   getGameState,
   getRandomMotivationalMessage,
 } from './games-hub.js';
@@ -456,11 +468,13 @@ function selectMoodBtn(val) {
   document
     .querySelectorAll('.mood-btn')
     .forEach((b) => b.classList.remove('selected'));
-  document
-    .querySelector(`.mood-btn[data-mood="${val}"]`)
-    ?.classList.add('selected');
+  const selectedBtn = document.querySelector(`.mood-btn[data-mood="${val}"]`);
+  selectedBtn?.classList.add('selected');
   const btn = document.getElementById('submitMoodBtn');
-  if (btn) btn.disabled = false;
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
 }
 
 async function submitMood() {
@@ -491,11 +505,34 @@ async function submitMood() {
 
     save();
     selectedMood = null;
+    showMoodSaved();
     goto('dashboard');
   } catch (error) {
     console.error('Error saving mood:', error);
-    alert('Failed to save mood. Please try again.');
+    showToast('Failed to save mood. Please try again.', 'error');
   }
+}
+
+function getGamesHubLoadingHtml() {
+  return `
+    <div class="loading-overlay">
+      <div style="text-align:center;">
+        <div class="spinner"></div>
+        <p class="loading-text">Loading games... please wait.</p>
+      </div>
+    </div>
+  `;
+}
+
+function showGamesHubLoading() {
+  const gamesRoot = document.getElementById('gamesHubRoot');
+  if (gamesRoot) {
+    gamesRoot.innerHTML = getGamesHubLoadingHtml();
+  }
+}
+
+function showMoodSaved() {
+  showToast('Mood recorded successfully!', 'success');
 }
 
 function buildChart() {
@@ -564,6 +601,32 @@ function showError(el, msg) {
   el.textContent = msg;
   el.classList.remove('hidden');
   setTimeout(() => el.classList.add('hidden'), 4500);
+}
+
+function ensureToastContainer() {
+  let container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+function showToast(message, type = 'success') {
+  const container = ensureToastContainer();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-12px)';
+  }, 3200);
+  setTimeout(() => {
+    toast.remove();
+  }, 3800);
 }
 
 async function handleLogin() {
@@ -773,22 +836,21 @@ function render() {
     case 'games':
       app.innerHTML = GamesHubPageComponent();
       setTimeout(() => {
-        if (typeof initGamesHub === 'function') {
-          initGamesHub(currentUser);
-          const gamesRoot = document.getElementById('gamesHubRoot');
-          if (gamesRoot && typeof renderGamesHub === 'function') {
-            gamesRoot.innerHTML = renderGamesHub();
+        const gamesRoot = document.getElementById('gamesHubRoot');
+        if (gamesRoot) {
+          gamesRoot.innerHTML = getGamesHubLoadingHtml();
+        }
+        setTimeout(() => {
+          if (typeof initGamesHub === 'function') {
+            initGamesHub(currentUser);
+          }
+          const gamesRootReady = document.getElementById('gamesHubRoot');
+          if (gamesRootReady && typeof renderGamesHub === 'function') {
+            gamesRootReady.innerHTML = renderGamesHub();
           }
           setupGamesHubEventListeners();
-        } else {
-          console.error('Games Hub functions not loaded');
-          const gamesRoot = document.getElementById('gamesHubRoot');
-          if (gamesRoot) {
-            gamesRoot.innerHTML =
-              '<p>Loading Games Hub... Please ensure games-hub.js is loaded.</p>';
-          }
-        }
-      }, 100);
+        }, 200);
+      }, 50);
       break;
     default:
       app.innerHTML = LandingPage();
@@ -849,14 +911,23 @@ function setupGamesHubEventListeners() {
     const gamesRoot = document.getElementById('gamesHubRoot');
     if (gamesRoot && typeof startGame === 'function') {
       gamesRoot.innerHTML = startGame(gameId);
+      setTimeout(() => {
+        window.drawPuzzleCanvas?.();
+        window.startFocusRound?.();
+      }, 80);
     }
   };
 
   window.exitGame = () => {
-    const gamesRoot = document.getElementById('gamesHubRoot');
-    if (gamesRoot && typeof renderGamesHub === 'function') {
-      gamesRoot.innerHTML = renderGamesHub();
-    }
+    showGamesHubLoading();
+    setTimeout(() => {
+      if (typeof initGamesHub === 'function') initGamesHub(currentUser);
+      const gamesRoot = document.getElementById('gamesHubRoot');
+      if (gamesRoot && typeof renderGamesHub === 'function') {
+        gamesRoot.innerHTML = renderGamesHub();
+        setupGamesHubEventListeners();
+      }
+    }, 180);
   };
 
   window.completeGame = async (points) => {
@@ -867,6 +938,22 @@ function setupGamesHubEventListeners() {
     }
   };
 
+  window.showGamesHub = () => {
+    showGamesHubLoading();
+    setTimeout(() => {
+      if (typeof initGamesHub === 'function') initGamesHub(currentUser);
+      const gamesRoot = document.getElementById('gamesHubRoot');
+      if (gamesRoot && typeof renderGamesHub === 'function') {
+        gamesRoot.innerHTML = renderGamesHub();
+        setupGamesHubEventListeners();
+        setTimeout(() => {
+          window.drawPuzzleCanvas?.();
+          window.startFocusRound?.();
+        }, 80);
+      }
+    }, 180);
+  };
+
   window.selectGameMood = (mood) => {
     if (typeof getRecommendedGames === 'function') {
       const recommended = getRecommendedGames(mood);
@@ -874,6 +961,19 @@ function setupGamesHubEventListeners() {
       // Optionally highlight recommended games in UI
     }
   };
+
+  window.flipMemoryCard = flipMemoryCard;
+  window.puzzleTileClick = puzzleTileClick;
+  window.shufflePuzzle = shufflePuzzle;
+  window.checkPuzzleComplete = checkPuzzleComplete;
+  window.handlePuzzleCanvasClick = handlePuzzleCanvasClick;
+  window.drawPuzzleCanvas = drawPuzzleCanvas;
+  window.selectColor = selectColor;
+  window.colorSection = colorSection;
+  window.completeColoringGame = completeColoringGame;
+  window.focusButtonPress = focusButtonPress;
+  window.startFocusRound = startFocusRound;
+  window.selectTriviaAnswer = selectTriviaAnswer;
 
   window.getRandomMotivationalMessage = getRandomMotivationalMessage;
 }

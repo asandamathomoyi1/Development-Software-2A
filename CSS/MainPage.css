@@ -210,6 +210,72 @@
             animation: pulse-ring 3s infinite;
         }
 
+        .toast-container {
+            position: fixed;
+            top: 22px;
+            right: 22px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            min-width: 260px;
+            max-width: 340px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            color: white;
+            font-size: 0.95rem;
+            line-height: 1.35;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(15,23,42,0.95);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+            opacity: 0;
+            transform: translateY(-12px);
+            animation: toastIn 0.35s forwards ease;
+            pointer-events: auto;
+        }
+        .toast-success {
+            border-color: #10b981;
+            background: linear-gradient(135deg, rgba(15,23,42,0.98), rgba(16,185,129,0.15));
+        }
+        .toast-error {
+            border-color: #ef4444;
+            background: linear-gradient(135deg, rgba(15,23,42,0.98), rgba(239,68,68,0.15));
+        }
+        @keyframes toastIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 260px;
+            padding: 24px;
+            border-radius: 24px;
+            background: rgba(15,23,42,0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .spinner {
+            width: 64px;
+            height: 64px;
+            border: 6px solid rgba(255,255,255,0.12);
+            border-top-color: rgba(96,165,250,0.95);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .loading-text {
+            margin-top: 16px;
+            font-size: 0.95rem;
+            color: rgba(255,255,255,0.87);
+            text-align: center;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Responsive nav */
         @media (max-width: 768px) {
             .desktop-nav { display: none; }
