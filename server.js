@@ -1,22 +1,25 @@
-require("dotenv").config();
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const admin = require('firebase-admin');
-
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config();
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
 
+// Initialize Firebase Admin
 if (!admin.apps.length) {
-  admin.initializeApp(); // No credentials file needed!
+  try {
+    const serviceAccount = require('./serviceAccountKey.json');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin initialized successfully');
+  } catch (err) {
+    console.error('❌ Firebase error:', err.message);
+  }
 }
 
 const db = admin.firestore();
@@ -33,20 +36,25 @@ const ADMIN_GOOGLE_EMAILS = process.env.ADMIN_GOOGLE_EMAIL
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('.'));
+app.use(express.static('HTML'));
+app.use(express.static('CSS'));
+app.use(express.static('JS'));
 
 app.use(
   session({
-    secret: 'your-secret-key',
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false },
+    cookie: { secure: false, maxAge: 30 * 60 * 1000 },
   })
 );
 
+// Email transporter
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -55,10 +63,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Data stores
 let users = [];
 let adminSettings = {};
 let otpStore = {};
 
+// Initialize data from Firestore
 async function initializeData() {
   try {
     const usersSnapshot = await db.collection('users').get();
@@ -68,7 +78,10 @@ async function initializeData() {
     console.log('Error loading users from Firestore:', err);
   }
   try {
-    const settingsDoc = await db.collection('admin_settings').doc('config').get();
+    const settingsDoc = await db
+      .collection('admin_settings')
+      .doc('config')
+      .get();
     if (settingsDoc.exists) {
       adminSettings = settingsDoc.data();
     }
@@ -80,6 +93,7 @@ async function initializeData() {
 
 initializeData();
 
+// Helper functions
 function parseMoodValue(mood) {
   if (typeof mood === 'number' && Number.isFinite(mood)) return mood;
   if (typeof mood === 'string') {
@@ -108,7 +122,7 @@ function normalizeMoodLabel(mood, fallbackLabel) {
   if (value === 3) return 'Neutral';
   if (value === 4) return 'Good';
   if (value === 5) return 'Great';
-  return 'Neutral';
+  return fallbackLabel || 'Neutral';
 }
 
 async function saveUsers() {
@@ -127,7 +141,10 @@ async function saveUsers() {
 
 async function saveAdminSettings() {
   try {
-    await db.collection('admin_settings').doc('config').set(adminSettings, { merge: true });
+    await db
+      .collection('admin_settings')
+      .doc('config')
+      .set(adminSettings, { merge: true });
     console.log('Admin settings saved to Firestore');
   } catch (err) {
     console.error('Error saving admin settings to Firestore:', err);
@@ -149,17 +166,26 @@ function parseMoodEntryDate(entry) {
 
 async function getMoodEntriesForUser(userId) {
   if (!userId) return [];
-  const snapshot = await db.collection('mood_entries').where('userId', '==', String(userId)).get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort(
-    (a, b) => parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
-  );
+  const snapshot = await db
+    .collection('mood_entries')
+    .where('userId', '==', String(userId))
+    .get();
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort(
+      (a, b) =>
+        parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
+    );
 }
 
 async function getAllMoodEntries() {
   const snapshot = await db.collection('mood_entries').get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).sort(
-    (a, b) => parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
-  );
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort(
+      (a, b) =>
+        parseMoodEntryDate(b).getTime() - parseMoodEntryDate(a).getTime()
+    );
 }
 
 async function deleteMoodEntryById(entryId) {
@@ -191,7 +217,9 @@ function getUserName(user) {
 }
 
 function findUserByEmail(email) {
-  return users.find((u) => u.email.toLowerCase() === String(email).toLowerCase());
+  return users.find(
+    (u) => u.email.toLowerCase() === String(email).toLowerCase()
+  );
 }
 
 async function createOrFindOauthUser(provider, providerId, email, name) {
@@ -218,7 +246,9 @@ async function createOrFindOauthUser(provider, providerId, email, name) {
 
 async function verifyGoogleToken(idToken) {
   if (!idToken) throw new Error('Missing Google ID token');
-  const googleClientId = process.env.GOOGLE_CLIENT_ID || '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com';
+  const googleClientId =
+    process.env.GOOGLE_CLIENT_ID ||
+    '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com';
   const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error('Invalid Google token');
@@ -230,8 +260,11 @@ async function verifyGoogleToken(idToken) {
 }
 
 function requireAdmin(req, res, next) {
-  const sessionTimeout = 1800 * 1000;
-  if (!req.session.is_admin || Date.now() - req.session.last_activity > sessionTimeout) {
+  const sessionTimeout = (adminSettings.sessionTimeout || 30) * 60 * 1000;
+  if (
+    !req.session.is_admin ||
+    Date.now() - req.session.last_activity > sessionTimeout
+  ) {
     return res.redirect('/admin-login.html?error=expired');
   }
   req.session.last_activity = Date.now();
@@ -244,17 +277,93 @@ function isAdminGoogleEmail(email) {
   return ADMIN_GOOGLE_EMAILS.includes(String(email).toLowerCase());
 }
 
+// ===== MAIN ROUTES =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'HTML', 'MainPage.html'));
 });
 
+// ===== GAMES HUB API ROUTES =====
+app.get('/api/games/stats/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const statsRef = db.collection('game_stats').doc(userId);
+    const statsDoc = await statsRef.get();
+
+    if (statsDoc.exists) {
+      res.json(statsDoc.data());
+    } else {
+      res.json({
+        gamesPlayed: 0,
+        totalPoints: 0,
+        badges: [],
+        memoryGamesPlayed: 0,
+        puzzleGamesPlayed: 0,
+        coloringGamesPlayed: 0,
+        focusGamesPlayed: 0,
+        triviaGamesPlayed: 0,
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching game stats:', error);
+    res.status(500).json({ error: 'Failed to fetch game stats' });
+  }
+});
+
+app.post('/api/games/stats', async (req, res) => {
+  try {
+    const { userId, stats, gameId, points, timestamp } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'UserId is required' });
+    }
+
+    const statsRef = db.collection('game_stats').doc(userId);
+    const existingStats = await statsRef.get();
+
+    let updatedStats = { ...stats };
+
+    if (gameId) {
+      if (gameId.includes('memory')) {
+        updatedStats.memoryGamesPlayed =
+          (updatedStats.memoryGamesPlayed || 0) + 1;
+      } else if (gameId.includes('puzzle')) {
+        updatedStats.puzzleGamesPlayed =
+          (updatedStats.puzzleGamesPlayed || 0) + 1;
+      } else if (gameId.includes('coloring')) {
+        updatedStats.coloringGamesPlayed =
+          (updatedStats.coloringGamesPlayed || 0) + 1;
+      } else if (gameId.includes('focus')) {
+        updatedStats.focusGamesPlayed =
+          (updatedStats.focusGamesPlayed || 0) + 1;
+      } else if (gameId.includes('trivia')) {
+        updatedStats.triviaGamesPlayed =
+          (updatedStats.triviaGamesPlayed || 0) + 1;
+      }
+    }
+
+    await statsRef.set(updatedStats, { merge: true });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving game stats:', error);
+    res.status(500).json({ error: 'Failed to save game stats' });
+  }
+});
+
+// ===== AUTH ROUTES =====
 app.post('/register', async (req, res) => {
   try {
     const { id, name, username, email, password } = req.body;
-    const displayName = name || username || (email ? email.split('@')[0] : 'User');
+    const displayName =
+      name || username || (email ? email.split('@')[0] : 'User');
     const existingUser = users.find((u) => u.email === email);
-    if (existingUser) return res.status(400).json({ error: 'User already exists' });
-    const newUser = { id: id || Date.now().toString(), name: displayName, email, password };
+    if (existingUser)
+      return res.status(400).json({ error: 'User already exists' });
+    const newUser = {
+      id: id || Date.now().toString(),
+      name: displayName,
+      email,
+      password,
+    };
     users.push(newUser);
     await saveUsers();
     res.json({ success: true });
@@ -266,11 +375,17 @@ app.post('/register', async (req, res) => {
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  const user = users.find((u) => u.email.toLowerCase() === String(email).toLowerCase());
+  const user = users.find(
+    (u) => u.email.toLowerCase() === String(email).toLowerCase()
+  );
   if (!user || user.password !== password) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
-  req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+  req.session.user = {
+    id: user.id,
+    email: user.email,
+    name: getUserName(user),
+  };
   res.json({ success: true, user: req.session.user });
 });
 
@@ -279,8 +394,17 @@ app.post('/oauth/google', async (req, res) => {
   try {
     const { idToken } = req.body;
     const payload = await verifyGoogleToken(idToken);
-    const user = await createOrFindOauthUser('google', payload.sub, payload.email, payload.name || payload.email.split('@')[0]);
-    req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
+    const user = await createOrFindOauthUser(
+      'google',
+      payload.sub,
+      payload.email,
+      payload.name || payload.email.split('@')[0]
+    );
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: getUserName(user),
+    };
     res.json({ success: true, user: req.session.user });
   } catch (error) {
     console.error('Google OAuth error:', error);
@@ -288,17 +412,32 @@ app.post('/oauth/google', async (req, res) => {
   }
 });
 
+// ===== MOOD ENTRY ROUTES =====
 app.get('/mood-entries', async (req, res) => {
   try {
     const userId = String(req.query.userId || '').trim();
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
-    const snapshot = await db.collection('mood_entries').where('userId', '==', userId).limit(100).get();
+    const snapshot = await db
+      .collection('mood_entries')
+      .where('userId', '==', userId)
+      .limit(100)
+      .get();
     let entries = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    entries = entries.sort((a, b) => {
-      const aTs = a.timestamp ? (a.timestamp.toMillis ? a.timestamp.toMillis() : Date.parse(a.date || '')) : 0;
-      const bTs = b.timestamp ? (b.timestamp.toMillis ? b.timestamp.toMillis() : Date.parse(b.date || '')) : 0;
-      return bTs - aTs;
-    }).slice(0, 30);
+    entries = entries
+      .sort((a, b) => {
+        const aTs = a.timestamp
+          ? a.timestamp.toMillis
+            ? a.timestamp.toMillis()
+            : Date.parse(a.date || '')
+          : 0;
+        const bTs = b.timestamp
+          ? b.timestamp.toMillis
+            ? b.timestamp.toMillis()
+            : Date.parse(b.date || '')
+          : 0;
+        return bTs - aTs;
+      })
+      .slice(0, 30);
     res.json({ success: true, entries });
   } catch (error) {
     console.error('Load mood entries error:', error);
@@ -315,8 +454,12 @@ app.post('/mood-entry', async (req, res) => {
     }
     const normalizedMoodLabel = normalizeMoodLabel(moodValue, moodLabel);
     const docRef = await db.collection('mood_entries').add({
-      userId, mood: moodValue, moodLabel: normalizedMoodLabel, feeling: feeling || '',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(), date: new Date().toLocaleDateString(),
+      userId,
+      mood: moodValue,
+      moodLabel: normalizedMoodLabel,
+      feeling: feeling || '',
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      date: new Date().toLocaleDateString(),
     });
     res.json({ success: true, id: docRef.id });
   } catch (error) {
@@ -325,80 +468,28 @@ app.post('/mood-entry', async (req, res) => {
   }
 });
 
+// ===== AI CHAT ROUTE =====
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, userId } = req.body;
     if (!message) return res.status(400).json({ error: 'Message is required' });
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const response = await model.generateContent(message);
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const chatPrompt = `You are a compassionate mental health companion. Keep responses warm, supportive, and under 150 words. Never give medical advice. User says: ${message}`;
+    const response = await model.generateContent(chatPrompt);
     const reply = response.response.text();
     res.json({ reply, success: true });
   } catch (error) {
     console.error('Gemini API error:', error);
-    res.status(500).json({ error: 'Failed to generate response', details: error.message });
+    res.json({
+      reply:
+        "I'm here for you. Could you tell me more about how you're feeling?",
+      success: true,
+    });
   }
 });
 
-app.options('/oauth/google-admin', cors());
-app.post('/oauth/google-admin', async (req, res) => {
-  try {
-    const { idToken } = req.body;
-    const payload = await verifyGoogleToken(idToken);
-    if (!isAdminGoogleEmail(payload.email)) {
-      return res.status(403).json({ error: 'Google account is not authorized for admin access' });
-    }
-    req.session.is_admin = true;
-    req.session.last_activity = Date.now();
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Admin Google OAuth error:', error);
-    res.status(400).json({ error: error.message || 'Google admin OAuth failed' });
-  }
-});
-
-app.post('/oauth/apple', async (req, res) => {
-  try {
-    const { email, name, providerId } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required for Apple login' });
-    const user = await createOrFindOauthUser('apple', providerId || email, email, name || email.split('@')[0]);
-    req.session.user = { id: user.id, email: user.email, name: getUserName(user) };
-    res.json({ success: true, user: req.session.user });
-  } catch (error) {
-    console.error('Apple OAuth error:', error);
-    res.status(500).json({ error: 'Apple login failed' });
-  }
-});
-
-app.get('/admin-login', (req, res) => res.redirect('/admin-login.html'));
-
-app.post('/admin-login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    req.session.is_admin = true;
-    req.session.last_activity = Date.now();
-    res.redirect('/admin-dashboard');
-  } else {
-    res.redirect('/admin-login.html?error=1');
-  }
-});
-
-app.get('/admin-settings', requireAdmin, (req, res) => {
-  res.send(`<!DOCTYPE html><html><head><title>Admin Settings</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Settings</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a class="active" href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Settings</h1><p class="page-meta">Configure platform settings and preferences.</p></div></header><section><form method="post" action="/admin-settings"><div class="form-group"><label for="siteTitle">Site Title</label><input type="text" id="siteTitle" name="siteTitle" value="${adminSettings.siteTitle || 'Digital Mental Health Platform'}" required></div><div class="form-group"><label for="adminEmail">Admin Email</label><input type="email" id="adminEmail" name="adminEmail" value="${adminSettings.adminEmail || 'admin@example.com'}" required></div><div class="form-group"><label for="sessionTimeout">Session Timeout (minutes)</label><input type="number" id="sessionTimeout" name="sessionTimeout" value="${adminSettings.sessionTimeout || 30}" min="10" max="120" required></div><button type="submit" class="btn btn-primary">Save Settings</button></form></section></main></div></body></html>`);
-});
-
-app.post('/admin-settings', requireAdmin, async (req, res) => {
-  try {
-    adminSettings = { ...adminSettings, ...req.body };
-    await saveAdminSettings();
-    res.redirect('/admin-settings');
-  } catch (err) {
-    console.error('Error updating settings:', err);
-    res.status(500).json({ error: 'Failed to save settings' });
-  }
-});
-
-app.get('/users', (req, res) => res.json(users));
-
+// ===== NEWSLETTER & OTP ROUTES =====
 app.post('/subscribe', (req, res) => {
   const { email } = req.body;
   const otp = generateOTP();
@@ -419,7 +510,7 @@ app.post('/verify-otp', (req, res) => {
 
 app.post('/reset-password', (req, res) => {
   const { email } = req.body;
-  const user = users.find(u => u.email === email);
+  const user = users.find((u) => u.email === email);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const otp = generateOTP();
   otpStore[email] = { otp, expires: Date.now() + 10 * 60 * 1000 };
@@ -430,7 +521,7 @@ app.post('/reset-password', (req, res) => {
 app.post('/update-password', async (req, res) => {
   try {
     const { email, newPassword } = req.body;
-    const user = users.find(u => u.email === email);
+    const user = users.find((u) => u.email === email);
     if (!user) return res.status(404).json({ error: 'User not found' });
     user.password = newPassword;
     await saveUsers();
@@ -441,41 +532,145 @@ app.post('/update-password', async (req, res) => {
   }
 });
 
+// ===== ADMIN ROUTES =====
+app.get('/admin-login', (req, res) => res.redirect('/admin-login.html'));
+
+app.post('/admin-login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    req.session.is_admin = true;
+    req.session.last_activity = Date.now();
+    res.redirect('/admin-dashboard');
+  } else {
+    res.redirect('/admin-login.html?error=1');
+  }
+});
+
+app.options('/oauth/google-admin', cors());
+app.post('/oauth/google-admin', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    const payload = await verifyGoogleToken(idToken);
+    if (!isAdminGoogleEmail(payload.email)) {
+      return res
+        .status(403)
+        .json({ error: 'Google account is not authorized for admin access' });
+    }
+    req.session.is_admin = true;
+    req.session.last_activity = Date.now();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Admin Google OAuth error:', error);
+    res
+      .status(400)
+      .json({ error: error.message || 'Google admin OAuth failed' });
+  }
+});
+
+app.post('/oauth/apple', async (req, res) => {
+  try {
+    const { email, name, providerId } = req.body;
+    if (!email)
+      return res
+        .status(400)
+        .json({ error: 'Email is required for Apple login' });
+    const user = await createOrFindOauthUser(
+      'apple',
+      providerId || email,
+      email,
+      name || email.split('@')[0]
+    );
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      name: getUserName(user),
+    };
+    res.json({ success: true, user: req.session.user });
+  } catch (error) {
+    console.error('Apple OAuth error:', error);
+    res.status(500).json({ error: 'Apple login failed' });
+  }
+});
+
+app.get('/admin-settings', requireAdmin, (req, res) => {
+  res.send(
+    `<!DOCTYPE html><html><head><title>Admin Settings</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Settings</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a class="active" href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Settings</h1><p class="page-meta">Configure platform settings and preferences.</p></div></header><section><form method="post" action="/admin-settings"><div class="form-group"><label for="siteTitle">Site Title</label><input type="text" id="siteTitle" name="siteTitle" value="${adminSettings.siteTitle || 'Digital Mental Health Platform'}" required></div><div class="form-group"><label for="adminEmail">Admin Email</label><input type="email" id="adminEmail" name="adminEmail" value="${adminSettings.adminEmail || 'admin@example.com'}" required></div><div class="form-group"><label for="sessionTimeout">Session Timeout (minutes)</label><input type="number" id="sessionTimeout" name="sessionTimeout" value="${adminSettings.sessionTimeout || 30}" min="10" max="120" required></div><button type="submit" class="btn btn-primary">Save Settings</button></form></section></main></div></body></html>`
+  );
+});
+
+app.post('/admin-settings', requireAdmin, async (req, res) => {
+  try {
+    adminSettings = { ...adminSettings, ...req.body };
+    await saveAdminSettings();
+    res.redirect('/admin-settings');
+  } catch (err) {
+    console.error('Error updating settings:', err);
+    res.status(500).json({ error: 'Failed to save settings' });
+  }
+});
+
+app.get('/users', (req, res) => res.json(users));
+
 app.get('/admin-dashboard', requireAdmin, async (req, res) => {
   const totalUsers = users.length;
   const allEntries = await getAllMoodEntries();
   const totalMoodEntries = allEntries.length;
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
   const activeUserIdsToday = new Set();
-  const moodDistribution = { 'Very Low': 0, 'Low': 0, 'Neutral': 0, 'Good': 0, 'Great': 0 };
-  let sumMoodScores = 0, subjectMoodCount = 0;
-  allEntries.forEach(entry => {
+  const moodDistribution = {
+    'Very Low': 0,
+    Low: 0,
+    Neutral: 0,
+    Good: 0,
+    Great: 0,
+  };
+  let sumMoodScores = 0,
+    subjectMoodCount = 0;
+  allEntries.forEach((entry) => {
     const mood = normalizeMoodLabel(entry.mood, entry.moodLabel);
     moodDistribution[mood]++;
     sumMoodScores += moodScore(entry.mood);
     subjectMoodCount++;
     const entryDate = parseMoodEntryDate(entry);
-    if (entryDate.toDateString() === todayStart.toDateString() && entry.userId) activeUserIdsToday.add(entry.userId);
+    if (entryDate.toDateString() === todayStart.toDateString() && entry.userId)
+      activeUserIdsToday.add(entry.userId);
   });
   const activeToday = activeUserIdsToday.size;
-  const avgMoodScore = subjectMoodCount > 0 ? (sumMoodScores / subjectMoodCount).toFixed(1) : 0;
-  res.send(`<!DOCTYPE html><html><head><title>Admin Dashboard</title><link rel="stylesheet" href="/admin-style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Admin Panel</p></div><nav><a class="active" href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Dashboard</h1><p class="page-meta">Overview of platform usage and user activity.</p></div></header><section class="stats-grid"><div class="card"><h2>Total Users</h2><p class="stat-value">${totalUsers}</p><p>Registered users on the platform.</p></div><div class="card"><h2>Total Mood Entries</h2><p class="stat-value">${totalMoodEntries}</p><p>Mood submissions across all users.</p></div><div class="card"><h2>Active Today</h2><p class="stat-value">${activeToday}</p><p>Users who logged mood data today.</p></div><div class="card"><h2>Average Mood Score</h2><p class="stat-value">${avgMoodScore}</p><p>Overall mood rating (1-5 scale).</p></div></section><section class="chart-section"><h2>Mood Distribution</h2><canvas id="moodChart" width="400" height="200"></canvas></section></main></div><script>new Chart(document.getElementById('moodChart').getContext('2d'),{type:'bar',data:{labels:${JSON.stringify(Object.keys(moodDistribution))},datasets:[{label:'Mood Count',data:${JSON.stringify(Object.values(moodDistribution))},backgroundColor:'rgba(59,130,246,0.5)',borderColor:'rgba(59,130,246,1)',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});</script></body></html>`);
+  const avgMoodScore =
+    subjectMoodCount > 0 ? (sumMoodScores / subjectMoodCount).toFixed(1) : 0;
+  res.send(
+    `<!DOCTYPE html><html><head><title>Admin Dashboard</title><link rel="stylesheet" href="/admin-style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Admin Panel</p></div><nav><a class="active" href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Dashboard</h1><p class="page-meta">Overview of platform usage and user activity.</p></div></header><section class="stats-grid"><div class="card"><h2>Total Users</h2><p class="stat-value">${totalUsers}</p><p>Registered users on the platform.</p></div><div class="card"><h2>Total Mood Entries</h2><p class="stat-value">${totalMoodEntries}</p><p>Mood submissions across all users.</p></div><div class="card"><h2>Active Today</h2><p class="stat-value">${activeToday}</p><p>Users who logged mood data today.</p></div><div class="card"><h2>Average Mood Score</h2><p class="stat-value">${avgMoodScore}</p><p>Overall mood rating (1-5 scale).</p></div></section><section class="chart-section"><h2>Mood Distribution</h2><canvas id="moodChart" width="400" height="200"></canvas></section></main></div><script>new Chart(document.getElementById('moodChart').getContext('2d'),{type:'bar',data:{labels:${JSON.stringify(Object.keys(moodDistribution))},datasets:[{label:'Mood Count',data:${JSON.stringify(Object.values(moodDistribution))},backgroundColor:'rgba(59,130,246,0.5)',borderColor:'rgba(59,130,246,1)',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});</script></body></html>`
+  );
 });
 
 app.get('/admin-analytics', requireAdmin, async (req, res) => {
-  const moodDistribution = { 'Very Low': 0, 'Low': 0, 'Neutral': 0, 'Good': 0, 'Great': 0 };
+  const moodDistribution = {
+    'Very Low': 0,
+    Low: 0,
+    Neutral: 0,
+    Good: 0,
+    Great: 0,
+  };
   const dailyCounts = {};
-  const periodStart = new Date(); periodStart.setDate(periodStart.getDate() - 29);
+  const periodStart = new Date();
+  periodStart.setDate(periodStart.getDate() - 29);
   for (let i = 0; i < 30; i++) {
-    const date = new Date(periodStart); date.setDate(date.getDate() + i);
+    const date = new Date(periodStart);
+    date.setDate(date.getDate() + i);
     dailyCounts[date.toISOString().split('T')[0]] = 0;
   }
-  let activeToday = 0, activeWeek = 0, activeMonth = 0;
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const weekStart = new Date(todayStart); weekStart.setDate(weekStart.getDate() - 6);
-  const monthStart = new Date(todayStart); monthStart.setDate(monthStart.getDate() - 29);
+  let activeToday = 0,
+    activeWeek = 0,
+    activeMonth = 0;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - 6);
+  const monthStart = new Date(todayStart);
+  monthStart.setDate(monthStart.getDate() - 29);
   const allEntries = await getAllMoodEntries();
-  allEntries.forEach(entry => {
+  allEntries.forEach((entry) => {
     const mood = normalizeMoodLabel(entry.mood, entry.moodLabel);
     moodDistribution[mood]++;
     const entryDate = parseMoodEntryDate(entry);
@@ -487,37 +682,57 @@ app.get('/admin-analytics', requireAdmin, async (req, res) => {
   });
   if (req.query.export === 'csv') {
     let csv = `Metric,Value\nActive users today,${activeToday}\nActive users last 7 days,${activeWeek}\nActive users last 30 days,${activeMonth}\n\nMood Category,Count\n`;
-    Object.entries(moodDistribution).forEach(([label, count]) => csv += `${label},${count}\n`);
+    Object.entries(moodDistribution).forEach(
+      ([label, count]) => (csv += `${label},${count}\n`)
+    );
     res.header('Content-Type', 'text/csv');
-    res.header('Content-Disposition', 'attachment; filename=analytics-report.csv');
+    res.header(
+      'Content-Disposition',
+      'attachment; filename=analytics-report.csv'
+    );
     return res.send(csv);
   }
-  const chartLabels = Object.keys(dailyCounts).map(d => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' }));
+  const chartLabels = Object.keys(dailyCounts).map((d) =>
+    new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })
+  );
   const chartValues = Object.values(dailyCounts);
-  res.send(`<!DOCTYPE html><html><head><title>Mood Analytics</title><link rel="stylesheet" href="/admin-style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Analytics</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a class="active" href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Mood Analytics</h1><p class="page-meta">Track mood behavior, active participation, and export measurement reports.</p></div><div><a class="btn btn-primary" href="/admin-analytics?export=csv">Export CSV</a></div></header><section class="stats-grid"><div class="card"><h2>Active Today</h2><p class="stat-value">${activeToday}</p><p>Unique users who submitted mood data within the last 24 hours.</p></div><div class="card"><h2>Active Last 7 Days</h2><p class="stat-value">${activeWeek}</p><p>Users with recent engagement over one week.</p></div><div class="card"><h2>Active Last 30 Days</h2><p class="stat-value">${activeMonth}</p><p>Users with recent engagement over one month.</p></div></section><section class="chart-section"><h2>Daily Mood Entries (Last 30 Days)</h2><canvas id="dailyChart"></canvas></section><section class="chart-section"><h2>Mood Distribution</h2><canvas id="moodChart"></canvas></section></main></div><script>new Chart(document.getElementById('dailyChart').getContext('2d'),{type:'line',data:{labels:${JSON.stringify(chartLabels)},datasets:[{label:'Mood Entries',data:${JSON.stringify(chartValues)},backgroundColor:'rgba(59,130,246,0.2)',borderColor:'rgba(59,130,246,1)',borderWidth:2}]},options:{scales:{y:{beginAtZero:true}}}});new Chart(document.getElementById('moodChart').getContext('2d'),{type:'pie',data:{labels:${JSON.stringify(Object.keys(moodDistribution))},datasets:[{data:${JSON.stringify(Object.values(moodDistribution))},backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#38bdf8']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#f5f5f7'}}}}});</script></body></html>`);
+  res.send(
+    `<!DOCTYPE html><html><head><title>Mood Analytics</title><link rel="stylesheet" href="/admin-style.css"><script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Analytics</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a class="active" href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Mood Analytics</h1><p class="page-meta">Track mood behavior, active participation, and export measurement reports.</p></div><div><a class="btn btn-primary" href="/admin-analytics?export=csv">Export CSV</a></div></header><section class="stats-grid"><div class="card"><h2>Active Today</h2><p class="stat-value">${activeToday}</p><p>Unique users who submitted mood data within the last 24 hours.</p></div><div class="card"><h2>Active Last 7 Days</h2><p class="stat-value">${activeWeek}</p><p>Users with recent engagement over one week.</p></div><div class="card"><h2>Active Last 30 Days</h2><p class="stat-value">${activeMonth}</p><p>Users with recent engagement over one month.</p></div></section><section class="chart-section"><h2>Daily Mood Entries (Last 30 Days)</h2><canvas id="dailyChart"></canvas></section><section class="chart-section"><h2>Mood Distribution</h2><canvas id="moodChart"></canvas></section></main></div><script>new Chart(document.getElementById('dailyChart').getContext('2d'),{type:'line',data:{labels:${JSON.stringify(chartLabels)},datasets:[{label:'Mood Entries',data:${JSON.stringify(chartValues)},backgroundColor:'rgba(59,130,246,0.2)',borderColor:'rgba(59,130,246,1)',borderWidth:2}]},options:{scales:{y:{beginAtZero:true}}}});new Chart(document.getElementById('moodChart').getContext('2d'),{type:'pie',data:{labels:${JSON.stringify(Object.keys(moodDistribution))},datasets:[{data:${JSON.stringify(Object.values(moodDistribution))},backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#38bdf8']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#f5f5f7'}}}}});</script></body></html>`
+  );
 });
 
 app.get('/admin-users', requireAdmin, async (req, res) => {
-  const rows = await Promise.all(users.map(async user => {
-    const entries = await getMoodEntriesForUser(user.id);
-    return `<tr><td>${user.name}</td><td>${user.email}</td><td>${entries.length}</td><td><a class="btn btn-primary" href="/admin-users/view/${user.id}">View</a><form method="post" action="/admin-users/delete" style="display:inline;margin-left:8px;"><input type="hidden" name="user_id" value="${user.id}"><button type="submit" class="btn btn-danger">Delete</button></form></td></tr>`;
-  }));
-  res.send(`<!DOCTYPE html><html><head><title>Users</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Users</p></div><nav><a href="/admin-dashboard">Dashboard</a><a class="active" href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Users</h1><p class="page-meta">Manage registered users and their data.</p></div></header><section><table><thead><tr><th>Name</th><th>Email</th><th>Mood Entries</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table></section></main></div></body></html>`);
+  const rows = await Promise.all(
+    users.map(async (user) => {
+      const entries = await getMoodEntriesForUser(user.id);
+      return `<tr><td>${user.name}</td><td>${user.email}</td><td>${entries.length}</td><td><a class="btn btn-primary" href="/admin-users/view/${user.id}">View</a><form method="post" action="/admin-users/delete" style="display:inline;margin-left:8px;"><input type="hidden" name="user_id" value="${user.id}"><button type="submit" class="btn btn-danger">Delete</button></form></td></tr>`;
+    })
+  );
+  res.send(
+    `<!DOCTYPE html><html><head><title>Users</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>Users</p></div><nav><a href="/admin-dashboard">Dashboard</a><a class="active" href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>Users</h1><p class="page-meta">Manage registered users and their data.</p></div></header><section><table><thead><tr><th>Name</th><th>Email</th><th>Mood Entries</th><th>Actions</th></tr></thead><tbody>${rows.join('')}</tbody></table></section></main></div></body></html>`
+  );
 });
 
 app.get('/admin-users/view/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  const user = users.find(u => u.id === userId);
+  const user = users.find((u) => u.id === userId);
   if (!user) return res.redirect('/admin-users');
   const entries = await getMoodEntriesForUser(userId);
-  const entryRows = entries.map(entry => `<tr><td>${entry.date || ''}</td><td>${entry.mood || ''}</td><td>${entry.moodLabel || ''}</td><td>${entry.feeling || ''}</td><td><form method="post" action="/admin-users/${entry.id}/delete-entry"><input type="hidden" name="user_id" value="${userId}"><button type="submit" class="btn btn-danger">Delete</button></form></td></tr>`).join('');
-  res.send(`<!DOCTYPE html><html><head><title>User Details - ${user.name}</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>User Details</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>${user.name}</h1><p class="page-meta">View and manage this user's account and mood entries.</p></div></header><section class="user-details"><h2>User Info</h2><form method="post" action="/admin-users/update"><input type="hidden" name="user_id" value="${user.id}"><label>Name</label><input type="text" name="name" value="${user.name || ''}" required><label>Email</label><input type="email" name="email" value="${user.email || ''}" required><div><button type="submit" class="btn btn-primary">Save</button><a href="/admin-users" class="btn btn-secondary">Back to users</a></div></form></section><section class="mood-entries-section"><h2>Mood Entries</h2><form method="post" action="/admin-users/${user.id}/add-entry"><div><div><label>Date</label><input type="date" name="date" value="${new Date().toISOString().slice(0,10)}" required></div><div><label>Mood</label><input type="text" name="mood" placeholder="Good" required></div><div><label>Label</label><input type="text" name="moodLabel" placeholder="Good" required></div><div><label>Feeling</label><input type="text" name="feeling" placeholder="How they felt" required></div></div><button type="submit" class="btn btn-primary">Add Mood Entry</button></form><table><thead><tr><th>Date</th><th>Mood</th><th>Label</th><th>Feeling</th><th>Actions</th></tr></thead><tbody>${entryRows || '<tr><td colspan="5">No mood entries yet.</td></tr>'}</tbody></table></section></main></div></body></html>`);
+  const entryRows = entries
+    .map(
+      (entry) =>
+        `<tr><td>${entry.date || ''}</td><td>${entry.mood || ''}</td><td>${entry.moodLabel || ''}</td><td>${entry.feeling || ''}</td><td><form method="post" action="/admin-users/${entry.id}/delete-entry"><input type="hidden" name="user_id" value="${userId}"><button type="submit" class="btn btn-danger">Delete</button></form></td></tr>`
+    )
+    .join('');
+  res.send(
+    `<!DOCTYPE html><html><head><title>User Details - ${user.name}</title><link rel="stylesheet" href="/admin-style.css"></head><body><div class="admin-layout"><aside class="sidebar"><div class="brand"><h2>Digital Mental Health Platform</h2><p>User Details</p></div><nav><a href="/admin-dashboard">Dashboard</a><a href="/admin-users">Users</a><a href="/admin-analytics">Mood Analytics</a><a href="/admin-settings">Settings</a><a href="/admin-logout">Logout</a></nav></aside><main class="main-content"><header class="page-header"><div><h1>${user.name}</h1><p class="page-meta">View and manage this user's account and mood entries.</p></div></header><section class="user-details"><h2>User Info</h2><form method="post" action="/admin-users/update"><input type="hidden" name="user_id" value="${user.id}"><label>Name</label><input type="text" name="name" value="${user.name || ''}" required><label>Email</label><input type="email" name="email" value="${user.email || ''}" required><div><button type="submit" class="btn btn-primary">Save</button><a href="/admin-users" class="btn btn-secondary">Back to users</a></div></form></section><section class="mood-entries-section"><h2>Mood Entries</h2><form method="post" action="/admin-users/${user.id}/add-entry"><div><div><label>Date</label><input type="date" name="date" value="${new Date().toISOString().slice(0, 10)}" required></div><div><label>Mood</label><input type="text" name="mood" placeholder="Good" required></div><div><label>Label</label><input type="text" name="moodLabel" placeholder="Good" required></div><div><label>Feeling</label><input type="text" name="feeling" placeholder="How they felt" required></div></div><button type="submit" class="btn btn-primary">Add Mood Entry</button></form><table><thead><tr><th>Date</th><th>Mood</th><th>Label</th><th>Feeling</th><th>Actions</th></tr></thead><tbody>${entryRows || '<tr><td colspan="5">No mood entries yet.</td></tr>'}</tbody></table></section></main></div></body></html>`
+  );
 });
 
 app.post('/admin-users/update', requireAdmin, async (req, res) => {
   try {
     const { user_id, name, email } = req.body;
-    const user = users.find(u => u.id === user_id);
+    const user = users.find((u) => u.id === user_id);
     if (user) {
       user.name = name || user.name;
       user.email = email || user.email;
@@ -534,8 +749,20 @@ app.post('/admin-users/:userId/add-entry', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.userId;
     const { mood, moodLabel, feeling, date } = req.body;
-    if (!userId || !mood || !moodLabel) return res.status(400).json({ error: 'Missing entry data' });
-    await db.collection('mood_entries').add({ userId, mood, moodLabel, feeling: feeling || '', timestamp: date ? admin.firestore.Timestamp.fromDate(new Date(date)) : admin.firestore.FieldValue.serverTimestamp(), date: date || new Date().toLocaleDateString() });
+    if (!userId || !mood || !moodLabel)
+      return res.status(400).json({ error: 'Missing entry data' });
+    await db
+      .collection('mood_entries')
+      .add({
+        userId,
+        mood,
+        moodLabel,
+        feeling: feeling || '',
+        timestamp: date
+          ? admin.firestore.Timestamp.fromDate(new Date(date))
+          : admin.firestore.FieldValue.serverTimestamp(),
+        date: date || new Date().toLocaleDateString(),
+      });
     res.redirect(`/admin-users/view/${userId}`);
   } catch (err) {
     console.error('Error adding mood entry:', err);
@@ -543,23 +770,27 @@ app.post('/admin-users/:userId/add-entry', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/admin-users/:userId/delete-entry', requireAdmin, async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const { entry_id } = req.body;
-    if (!entry_id) return res.status(400).json({ error: 'Missing entry id' });
-    await deleteMoodEntryById(entry_id);
-    res.redirect(`/admin-users/view/${userId}`);
-  } catch (err) {
-    console.error('Error deleting mood entry:', err);
-    res.status(500).json({ error: 'Failed to delete mood entry' });
+app.post(
+  '/admin-users/:entryId/delete-entry',
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const entryId = req.params.entryId;
+      const { user_id } = req.body;
+      if (!entryId) return res.status(400).json({ error: 'Missing entry id' });
+      await deleteMoodEntryById(entryId);
+      res.redirect(`/admin-users/view/${user_id}`);
+    } catch (err) {
+      console.error('Error deleting mood entry:', err);
+      res.status(500).json({ error: 'Failed to delete mood entry' });
+    }
   }
-});
+);
 
 app.post('/admin-users/delete', requireAdmin, async (req, res) => {
   try {
     const { user_id } = req.body;
-    const index = users.findIndex(u => u.id === user_id);
+    const index = users.findIndex((u) => u.id === user_id);
     if (index !== -1) {
       users.splice(index, 1);
       await saveUsers();
@@ -580,4 +811,7 @@ app.get('/admin-logout', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(
+    `Games Hub API available at http://localhost:${PORT}/api/games/stats/:userId`
+  );
 });

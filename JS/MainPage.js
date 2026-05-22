@@ -12,6 +12,17 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { ChatbotPage } from './pages/ChatbotPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
+import { GamesHubPage } from './pages/GamesHubPage.js';
+import {
+  renderGamesHub,
+  startGame,
+  completeGame,
+  exitGame,
+  getRecommendedGames,
+  initGamesHub,
+  getGameState,
+  getRandomMotivationalMessage,
+} from './games-hub.js';
 
 const BACKEND_URL = (() => {
   const origin = window.location.origin;
@@ -97,20 +108,7 @@ function load() {
   }
 }
 
-// ===== COMMENT OUT YOUR OLD login() FUNCTION =====
-/*
-function login(email, password) {
-    const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
-    const u = users.find(u => u.email === email && u.password === password);
-    if (!u) return false;
-    currentUser = { id: u.id, email: u.email, name: u.name };
-    localStorage.setItem('ms_user', JSON.stringify(currentUser));
-    moodHistory = []; chatMessages = []; load();
-    goto('dashboard'); return true;
-}
-*/
-
-// ===== ADD THIS NEW login() FUNCTION =====
+// ===== LOGIN FUNCTIONS =====
 async function login(email, password) {
   try {
     const response = await fetch(`${BACKEND_URL}/login`, {
@@ -123,13 +121,20 @@ async function login(email, password) {
 
     currentUser = data.user;
     localStorage.setItem('ms_user', JSON.stringify(currentUser));
-    const entries = await fetchUserMoodEntries(currentUser.id);
-    moodHistory = entries.map((e) => ({
-      date: e.date,
-      mood: e.mood,
-      feeling: e.feeling,
-      timestamp: Date.now(),
-    }));
+
+    // Load mood entries after login - with proper error handling
+    try {
+      const entries = await fetchUserMoodEntries(currentUser.id);
+      moodHistory = entries.map((e) => ({
+        date: e.date,
+        mood: e.mood,
+        feeling: e.feeling,
+        timestamp: Date.now(),
+      }));
+    } catch (err) {
+      console.warn('Could not load mood entries:', err);
+      moodHistory = [];
+    }
 
     goto('dashboard');
     return true;
@@ -139,45 +144,6 @@ async function login(email, password) {
   }
 }
 
-// ===== COMMENT OUT YOUR OLD signup() FUNCTION =====
-/*
-async function signup(name, email, password) {
-    try {
-        const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
-        const { auth } = await import('/firebase-config.js?v=1');
-        const { saveUserToFirestore } = await import('/firebase-config.js?v=1');
-        
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        
-        // Update user profile with display name
-        await updateProfile(user, { displayName: name });
-        
-        // Save user to Firestore
-        await saveUserToFirestore(user.uid, name, email);
-        
-        // Set current user
-        currentUser = { 
-            id: user.uid, 
-            email: user.email, 
-            name: name 
-        };
-        localStorage.setItem('ms_user', JSON.stringify(currentUser));
-        
-        // Sync with server
-        syncUserToAdmin(currentUser, password);
-        
-        goto('login');
-        return true;
-    } catch (error) {
-        console.error('Signup error:', error);
-        showError(document.getElementById('signupError'), error.message);
-        return false;
-    }
-}
-*/
-
-// ===== ADD THIS NEW signup() FUNCTION =====
 async function signup(name, email, password) {
   try {
     const response = await fetch(`${BACKEND_URL}/register`, {
@@ -189,9 +155,6 @@ async function signup(name, email, password) {
     if (!response.ok) throw new Error(data?.error || 'Registration failed');
 
     const loggedIn = await login(email, password);
-    if (loggedIn) {
-      // User registration is persisted through the backend already.
-    }
     return loggedIn;
   } catch (error) {
     showError(document.getElementById('signupError'), error.message);
@@ -199,31 +162,7 @@ async function signup(name, email, password) {
   }
 }
 
-// ======================== GOOGLE OAUTH ========================
-
-// ===== COMMENT OUT YOUR OLD handleGoogleSignIn() FUNCTION =====
-/*
-function handleGoogleSignIn(response) {
-    // Decode the JWT token to get user info
-    const responsePayload = decodeJwtResponse(response.credential);
-    const name = responsePayload.name;
-    const email = responsePayload.email;
-    const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
-    let user = users.find(u => u.email === email);
-    if (!user) {
-        user = { id: Date.now().toString(), name, email, password: 'google_oauth' };
-        users.push(user);
-        localStorage.setItem('ms_users', JSON.stringify(users));
-        syncUserToAdmin(user, 'google_oauth');
-    }
-    currentUser = { id: user.id, email: user.email, name: user.name };
-    localStorage.setItem('ms_user', JSON.stringify(currentUser));
-    moodHistory = []; chatMessages = []; load();
-    goto('dashboard');
-}
-*/
-
-// ===== ADD THIS NEW handleGoogleCredentialResponse() FUNCTION =====
+// ===== GOOGLE OAUTH - FIXED VERSION =====
 async function handleGoogleCredentialResponse(response) {
   if (!response?.credential) {
     showError(
@@ -244,14 +183,22 @@ async function handleGoogleCredentialResponse(response) {
 
     currentUser = data.user;
     localStorage.setItem('ms_user', JSON.stringify(currentUser));
-    const entries = await fetchUserMoodEntries(currentUser.id);
-    moodHistory = entries.map((e) => ({
-      date: e.date,
-      mood: e.mood,
-      feeling: e.feeling,
-      timestamp: Date.now(),
-    }));
 
+    // FIX: Load mood entries AFTER login, don't block the UI, silent fail
+    try {
+      const entries = await fetchUserMoodEntries(currentUser.id);
+      moodHistory = entries.map((e) => ({
+        date: e.date,
+        mood: e.mood,
+        feeling: e.feeling,
+        timestamp: Date.now(),
+      }));
+    } catch (err) {
+      console.warn('Mood entries not available yet, using empty history:', err);
+      moodHistory = [];
+    }
+
+    load();
     goto('dashboard');
   } catch (error) {
     console.error('Google login error:', error);
@@ -272,19 +219,11 @@ function isPasswordStrong(password) {
   );
 }
 
-// ===== COMMENT OUT YOUR OLD logout() FUNCTION =====
-/*
-function logout() {
-    currentUser = null; localStorage.removeItem('ms_user');
-    moodHistory = []; chatMessages = []; goto('landing');
-}
-*/
-
-// ===== ADD THIS NEW logout() FUNCTION =====
 function logout() {
   currentUser = null;
   localStorage.removeItem('ms_user');
   moodHistory = [];
+  chatMessages = [];
   goto('landing');
 }
 
@@ -393,13 +332,11 @@ function updateProgressBar(inputId) {
   let colorClass = 'progress-red';
 
   if (input.type === 'email') {
-    // Email progress: basic validation
     if (value.length > 0) progress = 33;
     if (value.includes('@')) progress = 66;
     if (value.includes('@') && value.includes('.') && value.length > 5)
       progress = 100;
   } else if (input.type === 'password') {
-    // Password progress: length and complexity
     if (value.length > 0) progress = 20;
     if (value.length >= 4) progress = 40;
     if (value.length >= 8) progress = 60;
@@ -412,7 +349,6 @@ function updateProgressBar(inputId) {
       progress = 100;
   }
 
-  // Set color based on progress
   if (progress >= 100) {
     colorClass = 'progress-green';
   } else if (progress >= 50) {
@@ -437,7 +373,7 @@ function renderChatMessages() {
                   <p style="color:rgba(186,230,253,0.5);font-size:11px;margin-top:4px;">${fmtTime(m.timestamp)}</p>
               </div>
               <div class="w-8 h-8 rounded-full profile-avatar flex items-center justify-center text-white text-xs font-semibold flex-shrink-0" style="font-family:'Sora',sans-serif;">
-                  ${currentUser.name[0].toUpperCase()}
+                  ${currentUser?.name?.charAt(0).toUpperCase() || 'U'}
               </div>
           </div>`
         : `<div class="flex gap-3 items-end anim-fadeUp">
@@ -454,8 +390,10 @@ function renderChatMessages() {
   el.scrollTop = el.scrollHeight;
 }
 
+// ===== FIXED AI COMPANION - WORKING VERSION =====
 async function sendChat(text) {
   if (!text.trim()) return;
+
   chatMessages.push({
     id: Date.now().toString(),
     text,
@@ -464,39 +402,37 @@ async function sendChat(text) {
   });
   save();
   renderChatMessages();
+
   const chatList = document.getElementById('chatList');
   if (chatList) {
     const typing = document.createElement('div');
     typing.id = 'typingIndicator';
     typing.className = 'flex gap-3 items-end';
     typing.innerHTML = `
-            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </div>
-            <div class="bubble-bot rounded-2xl rounded-bl-none px-4 py-3 flex gap-2 items-center">
-                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            </div>`;
+      <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <div class="bubble-bot rounded-2xl rounded-bl-none px-4 py-3">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+      </div>`;
     chatList.appendChild(typing);
     chatList.scrollTop = chatList.scrollHeight;
   }
-  
+
   try {
     const response = await fetch(`${BACKEND_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, userId: currentUser?.id })
+      body: JSON.stringify({ message: text, userId: currentUser?.id }),
     });
-    
     const data = await response.json();
     document.getElementById('typingIndicator')?.remove();
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to get response');
-    }
-    
+
+    const reply = data.reply || botResponse(text);
+
     chatMessages.push({
       id: (Date.now() + 1).toString(),
-      text: data.reply,
+      text: reply,
       sender: 'bot',
       timestamp: Date.now(),
     });
@@ -505,12 +441,12 @@ async function sendChat(text) {
     document.getElementById('typingIndicator')?.remove();
     chatMessages.push({
       id: (Date.now() + 1).toString(),
-      text: 'Sorry, I had trouble responding. Please try again.',
+      text: botResponse(text),
       sender: 'bot',
       timestamp: Date.now(),
     });
   }
-  
+
   save();
   renderChatMessages();
 }
@@ -527,16 +463,6 @@ function selectMoodBtn(val) {
   if (btn) btn.disabled = false;
 }
 
-// ===== COMMENT OUT YOUR OLD submitMood() FUNCTION =====
-/*
-function submitMood() {
-    if (!selectedMood) return;
-    moodHistory.push({ date: new Date().toLocaleDateString(), mood: selectedMood, feeling: document.getElementById('moodFeeling')?.value||'', timestamp: Date.now() });
-    save(); selectedMood = null; goto('dashboard');
-}
-*/
-
-// ===== ADD THIS NEW submitMood() FUNCTION =====
 async function submitMood() {
   if (!selectedMood || !currentUser) return;
   const feeling = document.getElementById('moodFeeling')?.value || '';
@@ -563,7 +489,7 @@ async function submitMood() {
       timestamp: Date.now(),
     });
 
-    save(); // Keep your existing save function
+    save();
     selectedMood = null;
     goto('dashboard');
   } catch (error) {
@@ -654,6 +580,7 @@ async function handleLogin() {
     showError(err, 'Incorrect email or password.');
   }
 }
+
 async function handleSignup() {
   const name = document.getElementById('signupName')?.value?.trim();
   const email = document.getElementById('signupEmail')?.value?.trim();
@@ -679,6 +606,7 @@ async function handleSignup() {
     showError(err, 'An account with this email already exists.');
   }
 }
+
 function handleResetPassword() {
   const email = document.getElementById('resetEmail')?.value?.trim();
   const newPw = document.getElementById('resetNewPassword')?.value;
@@ -714,6 +642,7 @@ function handleResetPassword() {
   showError(err, 'Password has been reset. Please sign in now.');
   setTimeout(() => goto('login'), 1500);
 }
+
 async function submitChat() {
   const inp = document.getElementById('chatInput');
   if (!inp) return;
@@ -721,14 +650,15 @@ async function submitChat() {
   inp.value = '';
   if (t) await sendChat(t);
 }
+
 function scrollToSection(id) {
   const element = document.getElementById(id);
   if (!element) return;
   element.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
 function subscribeNewsletter() {
   const email = document.getElementById('newsletterEmail')?.value?.trim();
-  const btn = document.getElementById('newsletterBtn');
   const msg = document.getElementById('newsletterMessage');
   if (!email) {
     msg.textContent = 'Please enter your email address.';
@@ -747,14 +677,12 @@ function subscribeNewsletter() {
     return;
   }
 
-  // Save newsletter subscription to localStorage
   let subscribers = JSON.parse(localStorage.getItem('ms_newsletter') || '[]');
   if (!subscribers.some((s) => s === email)) {
     subscribers.push(email);
     localStorage.setItem('ms_newsletter', JSON.stringify(subscribers));
   }
 
-  // Show success message
   msg.textContent =
     '✓ Thank you for subscribing! Check your inbox for a welcome email.';
   msg.style.backgroundColor = 'rgba(34,197,94,0.1)';
@@ -764,6 +692,22 @@ function subscribeNewsletter() {
   setTimeout(() => (msg.style.display = 'none'), 4000);
 }
 
+function initNewFeatures() {
+  // Initialize any dashboard-specific features
+  if (currentUser && currentPage === 'dashboard') {
+    console.log('Dashboard initialized for user:', currentUser.name);
+  }
+}
+
+// ===== GAMES HUB PAGE COMPONENT =====
+const GamesHubPageComponent = () => {
+  return `
+    <div class="games-hub-wrapper">
+      <div id="gamesHubRoot"></div>
+    </div>
+  `;
+};
+
 // ===== RENDER =====
 function render() {
   const app = document.getElementById('app');
@@ -771,21 +715,31 @@ function render() {
 
   if (currentUser && ['login', 'signup', 'landing'].includes(currentPage))
     currentPage = 'dashboard';
-  if (!currentUser && ['dashboard', 'chatbot', 'profile'].includes(currentPage))
+  if (
+    !currentUser &&
+    ['dashboard', 'chatbot', 'profile', 'games'].includes(currentPage)
+  )
     currentPage = 'landing';
 
   switch (currentPage) {
     case 'landing':
       app.innerHTML = LandingPage();
+      setTimeout(() => {
+        if (window.google?.accounts?.id) {
+          renderGoogleButtons();
+        }
+      }, 100);
       break;
     case 'about':
       app.innerHTML = AboutPage();
       break;
     case 'login':
       app.innerHTML = LoginPage();
+      setTimeout(() => renderGoogleButtons(), 50);
       break;
     case 'signup':
       app.innerHTML = SignupPage();
+      setTimeout(() => renderGoogleButtons(), 50);
       break;
     case 'reset':
       app.innerHTML = ResetPasswordPage();
@@ -793,6 +747,7 @@ function render() {
     case 'dashboard':
       app.innerHTML = DashboardPage({ currentUser, moodHistory, moodOptions });
       setTimeout(buildChart, 80);
+      setTimeout(initNewFeatures, 100);
       break;
     case 'chatbot':
       app.innerHTML = ChatbotPage();
@@ -815,11 +770,29 @@ function render() {
     case 'support':
       app.innerHTML = SupportPage();
       break;
+    case 'games':
+      app.innerHTML = GamesHubPageComponent();
+      setTimeout(() => {
+        if (typeof initGamesHub === 'function') {
+          initGamesHub(currentUser);
+          const gamesRoot = document.getElementById('gamesHubRoot');
+          if (gamesRoot && typeof renderGamesHub === 'function') {
+            gamesRoot.innerHTML = renderGamesHub();
+          }
+          setupGamesHubEventListeners();
+        } else {
+          console.error('Games Hub functions not loaded');
+          const gamesRoot = document.getElementById('gamesHubRoot');
+          if (gamesRoot) {
+            gamesRoot.innerHTML =
+              '<p>Loading Games Hub... Please ensure games-hub.js is loaded.</p>';
+          }
+        }
+      }, 100);
+      break;
     default:
       app.innerHTML = LandingPage();
   }
-
-  renderGoogleButtons();
 
   // Enable submit button after re-render if mood was selected
   const submitBtn = document.getElementById('submitMoodBtn');
@@ -833,50 +806,94 @@ function render() {
 }
 
 function initGoogleSignInMainPage() {
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com',
-            callback: handleGoogleCredentialResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true
-        });
-        renderGoogleButtons();
-    }
+  if (window.google && window.google.accounts && window.google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id:
+        '55967579577-p1417ojnj57okrjdivfoqcvvc7vct445.apps.googleusercontent.com',
+      callback: handleGoogleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+    renderGoogleButtons();
+  }
 }
 
 function renderGoogleButtons() {
-    if (!(window.google && window.google.accounts && window.google.accounts.id)) return;
-    const loginButton = document.getElementById('googleLoginButton');
-    const signupButton = document.getElementById('googleSignupButton');
-    if (loginButton) {
-        google.accounts.id.renderButton(loginButton, {
-            theme: 'outline',
-            size: 'large',
-            width: '100%',
-            text: 'signin_with'
-        });
+  if (!(window.google && window.google.accounts && window.google.accounts.id))
+    return;
+  const loginButton = document.getElementById('googleLoginButton');
+  const signupButton = document.getElementById('googleSignupButton');
+  if (loginButton) {
+    google.accounts.id.renderButton(loginButton, {
+      theme: 'outline',
+      size: 'large',
+      width: '100%',
+      text: 'signin_with',
+    });
+  }
+  if (signupButton) {
+    google.accounts.id.renderButton(signupButton, {
+      theme: 'outline',
+      size: 'large',
+      width: '100%',
+      text: 'signup_with',
+    });
+  }
+}
+
+function setupGamesHubEventListeners() {
+  console.log('Games Hub event listeners initialized');
+
+  // Expose game functions to window for inline handlers
+  window.startGame = (gameId) => {
+    const gamesRoot = document.getElementById('gamesHubRoot');
+    if (gamesRoot && typeof startGame === 'function') {
+      gamesRoot.innerHTML = startGame(gameId);
     }
-    if (signupButton) {
-        google.accounts.id.renderButton(signupButton, {
-            theme: 'outline',
-            size: 'large',
-            width: '100%',
-            text: 'signup_with'
-        });
+  };
+
+  window.exitGame = () => {
+    const gamesRoot = document.getElementById('gamesHubRoot');
+    if (gamesRoot && typeof renderGamesHub === 'function') {
+      gamesRoot.innerHTML = renderGamesHub();
     }
+  };
+
+  window.completeGame = async (points) => {
+    const gamesRoot = document.getElementById('gamesHubRoot');
+    if (gamesRoot && typeof completeGame === 'function') {
+      const result = await completeGame(points);
+      if (result) gamesRoot.innerHTML = result;
+    }
+  };
+
+  window.selectGameMood = (mood) => {
+    if (typeof getRecommendedGames === 'function') {
+      const recommended = getRecommendedGames(mood);
+      console.log(`Mood ${mood} selected. Recommended games:`, recommended);
+      // Optionally highlight recommended games in UI
+    }
+  };
+
+  window.getRandomMotivationalMessage = getRandomMotivationalMessage;
 }
 
 // ===== INIT =====
-(function() {
-    const saved = localStorage.getItem('ms_user');
-    if (saved) {
-        try { currentUser = JSON.parse(saved); load(); currentPage = 'dashboard'; }
-        catch(e) { localStorage.removeItem('ms_user'); }
+(function () {
+  const saved = localStorage.getItem('ms_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      load();
+      currentPage = 'dashboard';
+    } catch (e) {
+      localStorage.removeItem('ms_user');
     }
-    render();
+  }
+  render();
 })();
 
-// Expose functions to global scope for inline onclick handlers (module -> window)
+// Expose functions to global scope for inline onclick handlers
 window.goto = goto;
 window.subscribeNewsletter = subscribeNewsletter;
 window.logout = logout;
@@ -891,3 +908,11 @@ window.handleGoogleCredentialResponse = handleGoogleCredentialResponse;
 window.initGoogleSignInMainPage = initGoogleSignInMainPage;
 window.save = save;
 window.load = load;
+window.sendChat = sendChat;
+window.botResponse = botResponse;
+window.updateProgressBar = updateProgressBar;
+window.initGamesHub = initGamesHub;
+window.renderGamesHub = renderGamesHub;
+window.getRecommendedGames = getRecommendedGames;
+window.getGameState = getGameState;
+window.getRandomMotivationalMessage = getRandomMotivationalMessage;

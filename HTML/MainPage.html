@@ -4,11 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Mental Health Platform</title>
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+    
+    <!-- External Scripts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Games Hub CSS - in CSS folder -->
+    <link rel="stylesheet" href="./CSS/games-hub.css">
+    
     <style>
         :root {
             /* === BLUE THEME === */
@@ -23,11 +31,11 @@
             --glass-border-2:rgba(96, 165, 250, 0.15);
             --glass-shine:   rgba(191, 219, 254, 0.08);
 
-            --aurora-1: #3b82f6;   /* primary blue */
-            --aurora-2: #1e40af;   /* dark blue */
-            --aurora-3: #2563eb;   /* medium blue */
-            --aurora-4: #60a5fa;   /* light blue */
-            --aurora-5: #93c5fd;   /* lighter blue */
+            --aurora-1: #3b82f6;
+            --aurora-2: #1e40af;
+            --aurora-3: #2563eb;
+            --aurora-4: #60a5fa;
+            --aurora-5: #93c5fd;
 
             --text-primary:   rgba(240, 248, 255, 0.95);
             --text-secondary: rgba(191, 219, 254, 0.75);
@@ -91,6 +99,7 @@
             -webkit-backdrop-filter: blur(24px) saturate(1.5);
             border: 1px solid var(--glass-border);
             box-shadow: var(--card-shadow);
+            position: relative;
         }
         .glass-2 {
             background: var(--glass-bg-2);
@@ -98,6 +107,7 @@
             -webkit-backdrop-filter: blur(32px) saturate(1.8);
             border: 1px solid var(--glass-border-2);
             box-shadow: var(--card-shadow);
+            position: relative;
         }
         .glass-light {
             background: var(--glass-bg-light);
@@ -106,7 +116,6 @@
             border: 1px solid var(--glass-border);
         }
 
-        /* Shine line at top of glass card */
         .glass::before, .glass-2::before {
             content: '';
             position: absolute;
@@ -115,8 +124,6 @@
             background: linear-gradient(90deg, transparent, rgba(186,230,253,0.3), transparent);
             border-radius: 0 0 50% 50%;
         }
-        .glass { position: relative; }
-        .glass-2 { position: relative; }
 
         /* ===== BUTTONS ===== */
         .btn-primary {
@@ -129,6 +136,7 @@
             transition: all 0.25s ease;
             position: relative;
             overflow: hidden;
+            cursor: pointer;
         }
         .btn-primary::after {
             content: '';
@@ -152,6 +160,7 @@
             font-family: 'Sora', sans-serif;
             font-weight: 500;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         .btn-glass:hover {
             background: rgba(59, 130, 246, 0.25);
@@ -165,6 +174,7 @@
             color: var(--text-secondary);
             font-family: 'DM Sans', sans-serif;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         .btn-ghost:hover {
             background: rgba(255,255,255,0.06);
@@ -187,6 +197,7 @@
             border-radius: 8px;
             transition: all 0.2s;
             border: 1px solid transparent;
+            cursor: pointer;
         }
         .nav-link:hover { color: var(--text-primary); background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.2); }
         .nav-link.active { color: #93c5fd; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); }
@@ -413,7 +424,6 @@
             background: linear-gradient(135deg, #3b82f6, #2563eb);
         }
 
-        /* Icon bg */
         .icon-bg-teal  { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
         .icon-bg-green { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
         .icon-bg-violet{ background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); }
@@ -435,7 +445,10 @@
 <noscript style="color:#ffdddd;background:rgba(0,0,0,0.2);display:block;padding:12px;border-radius:6px;margin:12px;">JavaScript is required for this app — enable JS and reload.</noscript>
 
 <script>console.log('MainPage HTML loaded');</script>
-<script type="module" src="../JS/MainPage.js?v=1"></script>
+
+<!-- MainPage.js is in the JS folder, pages are inside JS/pages/ -->
+<script type="module" src="./JS/MainPage.js?v=2"></script>
+
 <script>
 window.addEventListener('load', () => {
   if (window.initGoogleSignInMainPage) {
