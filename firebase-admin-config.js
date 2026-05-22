@@ -1,39 +1,37 @@
 import admin from 'firebase-admin';
+import dotenv from 'dotenv';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import path from 'path';
+import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize Firebase Admin with your project credentials
-// NOTE: You'll need to download your service account key from Firebase Console
-// Go to: Project Settings > Service Accounts > Generate New Private Key
-// Save it as serviceAccountKey.json in this project directory
+// Load .env file
+dotenv.config();
 
-let serviceAccount;
+// Get the key path from .env
+const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+if (!keyPath) {
+  console.error('ERROR: GOOGLE_APPLICATION_CREDENTIALS not set in .env file');
+  process.exit(1);
+}
+
 try {
-  const keyPath = path.join(__dirname, 'digital-mental-health-pl-7df78-firebase-adminsdk-fbsvc-b5a9543bbb.json');
-  const keyFile = readFileSync(keyPath, 'utf8');
-  serviceAccount = JSON.parse(keyFile);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-} catch (error) {
-  try {
-    const keyPath = path.join(__dirname, 'serviceAccountKey.json');
-    const keyFile = readFileSync(keyPath, 'utf8');
-    serviceAccount = JSON.parse(keyFile);
+  const fullPath = join(__dirname, keyPath);
+  const serviceAccount = JSON.parse(readFileSync(fullPath, 'utf8'));
+  
+  if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-  } catch (err) {
-    console.log('Warning: No service account key found. Using default initialization.');
-    admin.initializeApp({
-      projectId: 'digital-mental-health-pl-7df78'
-    });
   }
+  console.log('✅ Firebase Admin initialized successfully');
+} catch (error) {
+  console.error('ERROR: Failed to load service account key:', error.message);
+  console.error('Expected key at:', join(__dirname, keyPath));
+  process.exit(1);
 }
 
 const db = admin.firestore();
