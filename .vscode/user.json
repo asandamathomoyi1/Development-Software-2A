@@ -1,0 +1,7 @@
+[
+    {
+        "username": "testuser",
+        "email": "YOUR_TEST_EMAIL@gmail.com",
+        "password": "$2y$10$hashedpasswordhere"
+    }
+]
