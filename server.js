@@ -578,6 +578,76 @@ app.get('/admin-logout', (req, res) => {
   res.redirect('/admin-login.html');
 });
 
+// --- Spotify client-credentials support (server-side, no user auth required) ---
+let _spotifyToken = null;
+let _spotifyTokenExpiresAt = 0;
+
+async function getSpotifyToken() {
+  const now = Date.now();
+  if (_spotifyToken && now < _spotifyTokenExpiresAt - 10000) return _spotifyToken;
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET');
+  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const resp = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Authorization': `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials'
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error('Failed to fetch Spotify token: ' + txt);
+  }
+  const data = await resp.json();
+  _spotifyToken = data.access_token;
+  _spotifyTokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+  return _spotifyToken;
+}
+
+app.get('/spotify/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Missing query parameter q' });
+    const token = await getSpotifyToken();
+    const params = new URLSearchParams({ q, type: 'track', limit: String(req.query.limit || 10) });
+    const resp = await fetch(`https://api.spotify.com/v1/search?${params.toString()}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      return res.status(500).json({ error: 'Spotify API error', details: txt });
+    }
+    const body = await resp.json();
+    const tracks = (body.tracks && body.tracks.items || []).map(t => ({
+      id: t.id,
+      name: t.name,
+      artists: (t.artists || []).map(a => a.name).join(', '),
+      album: { name: t.album && t.album.name, image: t.album && t.album.images && t.album.images[0] && t.album.images[0].url },
+      preview_url: t.preview_url,
+      external_url: t.external_urls && t.external_urls.spotify
+    }));
+    res.json({ success: true, tracks });
+  } catch (err) {
+    console.error('Spotify search error:', err);
+    res.status(500).json({ error: err.message || 'Spotify search failed' });
+  }
+});
+
+app.get('/spotify/track/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!id) return res.status(400).json({ error: 'Missing track id' });
+    const token = await getSpotifyToken();
+    const resp = await fetch(`https://api.spotify.com/v1/tracks/${encodeURIComponent(id)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!resp.ok) return res.status(500).json({ error: 'Spotify API error' });
+    const t = await resp.json();
+    const track = { id: t.id, name: t.name, artists: (t.artists||[]).map(a=>a.name).join(', '), album: { name: t.album && t.album.name, image: t.album && t.album.images && t.album.images[0] && t.album.images[0].url }, preview_url: t.preview_url, external_url: t.external_urls && t.external_urls.spotify };
+    res.json({ success: true, track });
+  } catch (err) {
+    console.error('Spotify track error:', err);
+    res.status(500).json({ error: err.message || 'Failed to load track' });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
