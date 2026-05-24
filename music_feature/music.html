@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Music</title>
+  <link rel="stylesheet" href="/music_feature/musicstyle.css">
+ </head>
+<body>
+  <main class="music-app">
+    <h1>Music (Spotify - no user auth)</h1>
+    <div class="search">
+      <input id="q" placeholder="Search for a song or artist" />
+      <button id="searchBtn">Search</button>
+    </div>
+    <div id="results" class="results"></div>
+    <audio id="player" controls style="width:100%;margin-top:12px"></audio>
+  </main>
+  <script src="/music_feature/music.js"></script>
+</body>
+</html>
