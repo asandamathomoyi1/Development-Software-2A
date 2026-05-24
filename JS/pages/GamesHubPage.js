@@ -8,26 +8,32 @@ import {
   initGamesHub,
 } from '../games-hub.js';
 
-export function GamesHubPage() {
-  return `${Nav('games', null)}
-    <div id="gamesHubContent" style="padding-top: 90px; padding-bottom: 60px;">
-      ${renderGamesHub()}
+export function GamesHubPage(currentUser) {
+  return `${Nav('games', currentUser)}
+    <div class="games-hub-wrapper">
+      <div id="gamesHubRoot" style="padding-top: 90px; padding-bottom: 60px;">
+        ${renderGamesHub()}
+      </div>
     </div>
   `;
 }
 
-export function renderGamePage(gameId) {
-  return `${Nav('games', null)}
-    <div id="gamesHubContent" style="padding-top: 90px; padding-bottom: 60px;">
-      ${startGame(gameId)}
+export function renderGamePage(currentUser, gameId) {
+  return `${Nav('games', currentUser)}
+    <div class="games-hub-wrapper">
+      <div id="gamesHubRoot" style="padding-top: 90px; padding-bottom: 60px;">
+        ${startGame(gameId)}
+      </div>
     </div>
   `;
 }
 
-export function renderGameCompletePage(points) {
-  return `${Nav('games', null)}
-    <div id="gamesHubContent" style="padding-top: 90px; padding-bottom: 60px;">
-      ${completeGame(points)}
+export function renderGameCompletePage(currentUser, points) {
+  return `${Nav('games', currentUser)}
+    <div class="games-hub-wrapper">
+      <div id="gamesHubRoot" style="padding-top: 90px; padding-bottom: 60px;">
+        ${completeGame(points)}
+      </div>
     </div>
   `;
 }

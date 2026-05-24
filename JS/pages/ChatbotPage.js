@@ -1,7 +1,7 @@
 import { Nav } from './Nav.js';
 
-export function ChatbotPage() {
-    return `${Nav('chatbot')}
+export function ChatbotPage(currentUser) {
+  return `${Nav('chatbot', currentUser)}
     <div style="padding-top:64px;height:100vh;display:flex;flex-direction:column;">
         <!-- Chat header -->
         <div style="background:rgba(3,13,23,0.8);backdrop-filter:blur(30px);border-bottom:1px solid rgba(56,189,248,0.12);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;">
@@ -21,22 +21,19 @@ export function ChatbotPage() {
                 </div>
             </div>
         </div>
-        <div style="background:rgba(3,13,23,0.82);border-bottom:1px solid rgba(56,189,248,0.12);padding:10px 24px;text-align:center;">
-            <a href="https://hellobetter.de/en/ello/" target="_blank" rel="noreferrer" class="btn-glass" style="padding:10px 18px;border-radius:12px;font-size:13px;">Open HelloBetter for app support</a>
-        </div>
 
         <!-- Messages -->
         <div id="chatList" style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;"></div>
 
         <!-- Input -->
-        <div style="background:rgba(3,13,23,0.8);backdrop-filter:blur(30px);border-top:1px solid rgba(56,189,248,0.12);padding:16px 24px;">
+        <div style="background:rgba(3,13,23,0.88);backdrop-filter:blur(30px);border-top:1px solid rgba(56,189,248,0.16);padding:16px 24px;">
             <div style="max-width:800px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;">
-                <textarea id="chatInput" class="input-glass" style="flex:1;border-radius:14px;padding:12px 16px;font-size:14px;resize:none;max-height:120px;line-height:1.5;"
-                    rows="1" placeholder="Share what's on your mind..."
-                    oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"
+                <textarea id="chatInput" class="input-glass" style="flex:1;min-height:72px;max-height:220px;border-radius:14px;padding:16px 18px;font-size:15px;line-height:1.6;color:var(--text-primary);background:rgba(255,255,255,0.06);border:1px solid rgba(147,197,253,0.22);resize:none;"
+                    rows="1" placeholder="Type your message here..."
+                    oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,220)+'px'"
                     onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitChat();}"></textarea>
-                <button onclick="submitChat()" class="btn-primary" style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <button onclick="submitChat()" class="btn-primary" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#2563eb);">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
             </div>
         </div>

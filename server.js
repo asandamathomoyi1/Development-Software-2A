@@ -37,7 +37,18 @@ const ADMIN_GOOGLE_EMAILS = process.env.ADMIN_GOOGLE_EMAIL
       .filter(Boolean)
   : [];
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini AI
+let genAI = null;
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('⚠️ GEMINI_API_KEY is not set in environment');
+} else {
+  try {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    console.log('✅ Gemini AI initialized successfully');
+  } catch (err) {
+    console.error('❌ Error initializing Gemini AI:', err.message);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -471,25 +482,64 @@ app.post('/mood-entry', async (req, res) => {
   }
 });
 
-// ===== AI CHAT ROUTE =====
+// ===== AI CHAT ROUTE - AUTO MODEL DETECTION =====
 app.post('/api/chat', async (req, res) => {
-  try {
-    const { message, userId } = req.body;
-    if (!message) return res.status(400).json({ error: 'Message is required' });
+  const { message } = req.body;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const chatPrompt = `You are a compassionate mental health companion. Keep responses warm, supportive, and under 150 words. Never give medical advice. User says: ${message}`;
-    const response = await model.generateContent(chatPrompt);
-    const reply = response.response.text();
-    res.json({ reply, success: true });
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    res.json({
+  console.log('📨 Chat request received:', message);
+
+  if (!genAI) {
+    console.log('❌ genAI is null - API key not loaded');
+    return res.json({
       reply:
         "I'm here for you. Could you tell me more about how you're feeling?",
       success: true,
     });
   }
+
+  console.log('✅ genAI exists, trying models...');
+
+  // List of models to try in order (most common first)
+  const modelNames = [
+    'gemini-pro',
+    'gemini-1.0-pro',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash',
+  ];
+
+  let lastError = null;
+  let reply = null;
+  let workingModel = null;
+
+  for (const modelName of modelNames) {
+    try {
+      console.log(`🔄 Trying model: ${modelName}`);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(message || 'Hello!');
+      reply = result.response.text();
+
+      if (reply && reply.trim()) {
+        workingModel = modelName;
+        console.log(`✅ SUCCESS! Model ${modelName} worked!`);
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+      console.log(`❌ Model ${modelName} failed:`, err.message);
+    }
+  }
+
+  if (!reply || !reply.trim()) {
+    console.error('❌ All models failed. Last error:', lastError?.message);
+    return res.json({
+      reply:
+        "I'm here for you. Could you tell me more about how you're feeling?",
+      success: true,
+    });
+  }
+
+  console.log(`💬 Response from ${workingModel}:`, reply.substring(0, 100));
+  return res.json({ reply, success: true });
 });
 
 // ===== NEWSLETTER & OTP ROUTES =====
@@ -708,7 +758,7 @@ app.get('/admin-users', requireAdmin, async (req, res) => {
   const rows = await Promise.all(
     users.map(async (user) => {
       const entries = await getMoodEntriesForUser(user.id);
-      return `<tr><td>${user.name}</td><td>${user.email}</td><td>${entries.length}</td><td><a class="btn btn-primary" href="/admin-users/view/${user.id}">View</a><form method="post" action="/admin-users/delete" style="display:inline;margin-left:8px;"><input type="hidden" name="user_id" value="${user.id}"><button type="submit" class="btn btn-danger">Delete</button></form></td></tr>`;
+      return `<tr><td>${user.name}</td><td>${user.email}</td><td>${entries.length}<tr><td><a class="btn btn-primary" href="/admin-users/view/${user.id}">View</a><form method="post" action="/admin-users/delete" style="display:inline;margin-left:8px;"><input type="hidden" name="user_id" value="${user.id}"><button type="submit" class="btn btn-danger">Delete</button></form></tr>`;
     })
   );
   res.send(
@@ -754,18 +804,16 @@ app.post('/admin-users/:userId/add-entry', requireAdmin, async (req, res) => {
     const { mood, moodLabel, feeling, date } = req.body;
     if (!userId || !mood || !moodLabel)
       return res.status(400).json({ error: 'Missing entry data' });
-    await db
-      .collection('mood_entries')
-      .add({
-        userId,
-        mood,
-        moodLabel,
-        feeling: feeling || '',
-        timestamp: date
-          ? admin.firestore.Timestamp.fromDate(new Date(date))
-          : admin.firestore.FieldValue.serverTimestamp(),
-        date: date || new Date().toLocaleDateString(),
-      });
+    await db.collection('mood_entries').add({
+      userId,
+      mood,
+      moodLabel,
+      feeling: feeling || '',
+      timestamp: date
+        ? admin.firestore.Timestamp.fromDate(new Date(date))
+        : admin.firestore.FieldValue.serverTimestamp(),
+      date: date || new Date().toLocaleDateString(),
+    });
     res.redirect(`/admin-users/view/${userId}`);
   } catch (err) {
     console.error('Error adding mood entry:', err);
@@ -813,8 +861,7 @@ app.get('/admin-logout', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(
-    `Games Hub API available at http://localhost:${PORT}/api/games/stats/:userId`
-  );
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`📍 http://localhost:${PORT}`);
+  console.log(`💬 Chat endpoint: http://localhost:${PORT}/api/chat`);
 });

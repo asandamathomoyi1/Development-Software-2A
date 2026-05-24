@@ -763,13 +763,7 @@ function initNewFeatures() {
 }
 
 // ===== GAMES HUB PAGE COMPONENT =====
-const GamesHubPageComponent = () => {
-  return `
-    <div class="games-hub-wrapper">
-      <div id="gamesHubRoot"></div>
-    </div>
-  `;
-};
+const GamesHubPageComponent = (currentUser) => GamesHubPage(currentUser);
 
 // ===== RENDER =====
 function render() {
@@ -813,7 +807,7 @@ function render() {
       setTimeout(initNewFeatures, 100);
       break;
     case 'chatbot':
-      app.innerHTML = ChatbotPage();
+      app.innerHTML = ChatbotPage(currentUser);
       setTimeout(renderChatMessages, 50);
       break;
     case 'profile':
@@ -834,7 +828,7 @@ function render() {
       app.innerHTML = SupportPage();
       break;
     case 'games':
-      app.innerHTML = GamesHubPageComponent();
+      app.innerHTML = GamesHubPageComponent(currentUser);
       setTimeout(() => {
         const gamesRoot = document.getElementById('gamesHubRoot');
         if (gamesRoot) {
@@ -995,6 +989,7 @@ function setupGamesHubEventListeners() {
 
 // Expose functions to global scope for inline onclick handlers
 window.goto = goto;
+window.backToDashboard = () => goto('dashboard');
 window.subscribeNewsletter = subscribeNewsletter;
 window.logout = logout;
 window.scrollToSection = scrollToSection;

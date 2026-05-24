@@ -866,7 +866,6 @@ function showGameComplete(points) {
         <p class="encouragement-message">${getRandomMotivationalMessage()}</p>
         <div class="game-complete-actions">
           <button class="btn-primary" onclick="window.showGamesHub()">Play Another Game</button>
-          <button class="btn-secondary" onclick="window.exitGame()">Back to Dashboard</button>
         </div>
       </div>
     </div>
