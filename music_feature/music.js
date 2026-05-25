@@ -3,6 +3,7 @@ const resultsEl = $('#results');
 const player = $('#player');
 const qInput = $('#q');
 const searchBtn = $('#searchBtn');
+const enableBtn = $('#enableAudio');
 
 async function search(q) {
   resultsEl.innerHTML = '<p class="muted">Searching…</p>';
@@ -32,7 +33,13 @@ function renderTracks(tracks) {
     const src = btn.getAttribute('data-preview');
     if (!src) return;
     player.src = src;
-    player.play().catch(()=>{});
+    player.play().catch((err)=>{
+      // show enable button when autoplay / play is blocked
+      if (enableBtn) {
+        enableBtn.style.display = 'inline-block';
+        enableBtn.textContent = 'Tap to play';
+      }
+    });
   }));
 }
 
@@ -50,4 +57,22 @@ qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchBtn.cli
 document.addEventListener('DOMContentLoaded', () => {
   // focus input
   qInput.focus();
+  // if user taps anywhere, try to resume audio (helpful on mobile)
+  const tryResume = () => {
+    if (!player) return;
+    player.play().then(()=>{
+      if (enableBtn) enableBtn.style.display = 'none';
+    }).catch(()=>{});
+    document.body.removeEventListener('click', tryResume);
+  };
+  document.body.addEventListener('click', tryResume, { once: true });
+  if (enableBtn) {
+    enableBtn.addEventListener('click', () => {
+      player.play().then(()=>{
+        enableBtn.style.display = 'none';
+      }).catch(()=>{
+        // still blocked; keep the button visible
+      });
+    });
+  }
 });
