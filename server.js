@@ -4,7 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const admin = require('firebase-admin');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
@@ -37,17 +37,30 @@ const ADMIN_GOOGLE_EMAILS = process.env.ADMIN_GOOGLE_EMAIL
       .filter(Boolean)
   : [];
 
-// Initialize Gemini AI
+// Initialize Gemini / Vertex AI
 let genAI = null;
-if (!process.env.GEMINI_API_KEY) {
-  console.warn('⚠️ GEMINI_API_KEY is not set in environment');
-} else {
+const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const vertexProject = process.env.GOOGLE_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+const vertexLocation = process.env.GOOGLE_LOCATION || process.env.GOOGLE_REGION;
+
+if (geminiApiKey) {
   try {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    console.log('✅ Gemini AI initialized successfully');
+    genAI = new GoogleGenAI({ apiKey: geminiApiKey });
+    console.log('✅ Google Gemini API initialized successfully');
+    console.log('   • GEMINI_API_KEY loaded, length:', geminiApiKey.length);
   } catch (err) {
-    console.error('❌ Error initializing Gemini AI:', err.message);
+    console.error('❌ Error initializing Google Gemini API:', err.message);
   }
+} else if (vertexProject && vertexLocation) {
+  try {
+    genAI = new GoogleGenAI({ vertexai: true, project: vertexProject, location: vertexLocation });
+    console.log('✅ Google Gemini Vertex AI initialized successfully');
+    console.log(`   • project=${vertexProject} location=${vertexLocation}`);
+  } catch (err) {
+    console.error('❌ Error initializing Google Gemini Vertex AI:', err.message);
+  }
+} else {
+  console.warn('⚠️ No Gemini API key or Vertex AI project/location set. Set GEMINI_API_KEY or GOOGLE_PROJECT+GOOGLE_LOCATION.');
 }
 
 // Middleware
@@ -499,12 +512,11 @@ app.post('/api/chat', async (req, res) => {
 
   console.log('✅ genAI exists, trying models...');
 
-  // List of models to try in order (most common first)
   const modelNames = [
-    'gemini-pro',
-    'gemini-1.0-pro',
-    'gemini-1.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.1',
     'gemini-1.5-flash',
+    'gemini-1.0-pro',
   ];
 
   let lastError = null;
@@ -514,18 +526,20 @@ app.post('/api/chat', async (req, res) => {
   for (const modelName of modelNames) {
     try {
       console.log(`🔄 Trying model: ${modelName}`);
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await model.generateContent(message || 'Hello!');
-      reply = result.response.text();
+      const result = await genAI.models.generateContent({
+        model: modelName,
+        contents: message || 'Hello!',
+      });
+      reply = result.text?.trim();
 
-      if (reply && reply.trim()) {
+      if (reply) {
         workingModel = modelName;
-        console.log(`✅ SUCCESS! Model ${modelName} worked!`);
+        console.log(`✅ SUCCESS! Model ${modelName} returned text.`);
         break;
       }
     } catch (err) {
       lastError = err;
-      console.log(`❌ Model ${modelName} failed:`, err.message);
+      console.log(`❌ Model ${modelName} failed:`, err?.message || err);
     }
   }
 

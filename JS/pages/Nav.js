@@ -17,6 +17,7 @@ export function Nav(page, currentUser) {
                     ${page !== 'dashboard' ? `<button onclick="backToDashboard()" class="btn-glass" style="padding:7px 16px;border-radius:8px;font-size:14px;cursor:pointer;margin-right:6px;">Back</button>` : ''}
                     <button onclick="goto('dashboard')" class="nav-link ${page === 'dashboard' || page === 'games' ? 'active' : ''}">Dashboard</button>
                     <button onclick="goto('chatbot')" class="nav-link ${page === 'chatbot' ? 'active' : ''}">AI Companion</button>
+                    <button onclick="goto('resources')" class="nav-link ${page === 'resources' ? 'active' : ''}">Resources</button>
                     <button onclick="goto('profile')" class="nav-link ${page === 'profile' ? 'active' : ''}">Profile</button>
                     <button onclick="logout()" class="btn-ghost" style="padding:7px 16px;border-radius:8px;font-size:14px;cursor:pointer;margin-left:6px;">Sign out</button>
                 `

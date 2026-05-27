@@ -13,6 +13,7 @@ import { DashboardPage } from './pages/DashboardPage.js';
 import { ChatbotPage } from './pages/ChatbotPage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { GamesHubPage } from './pages/GamesHubPage.js';
+import { Nav } from './pages/Nav.js';
 import {
   renderGamesHub,
   startGame,
@@ -88,6 +89,93 @@ let moodHistory = [],
   chatMessages = [];
 let selectedMood = null,
   moodChart = null;
+let selectedArticle = null;
+let openFaq = null;
+
+const CRISIS = [
+  {
+    title: 'SADAG Suicide & Crisis Lifeline',
+    desc: 'Available 24/7 for anyone in emotional distress or suicidal crisis.',
+    action: 'Call 0800567567',
+    icon: '📞',
+    color: 'rgba(248,113,113,0.18)',
+    border: '#fca5a5',
+  },
+  {
+    title: 'Crisis Text Line',
+    desc: 'Support via text message. Text HOME to 741741 for free, confidential help.',
+    action: 'Text 741741',
+    icon: '💬',
+    color: 'rgba(167,139,250,0.18)',
+    border: '#c4b5fd',
+  },
+  {
+    title: 'Immediate Support',
+    desc: 'If you are in immediate danger, contact one of these supports: 0660340946 / 0732848953 or email cebolakhemabo05@gmail.com / ayabongafatane@gmail.com.',
+    action: 'Contact Support',
+    icon: '🚨',
+    color: 'rgba(249,115,22,0.12)',
+    border: '#fb923c',
+  },
+];
+
+const ARTICLES = [
+  {
+    tag: 'Self-care',
+    readTime: '5 min read',
+    title: 'How to Build a Simple Daily Routine',
+    desc: 'A calm routine can help you feel more grounded and less overwhelmed.',
+    content:
+      'A simple daily routine can ease anxiety and create structure. Start with small habits like morning stretches, a hydration break, and a five-minute mindfulness check-in. Over time, refine your routine so it feels supportive rather than strict.',
+  },
+  {
+    tag: 'Mindset',
+    readTime: '6 min read',
+    title: 'Recognizing and Managing Stress Triggers',
+    desc: 'Learn to spot the things that raise your stress and make small changes.',
+    content:
+      'Stress triggers are personal. They can be deadlines, social pressure, or big life changes. Notice what feelings come up, then give yourself permission to pause, breathe, and choose a small action that helps you feel safer.',
+  },
+  {
+    tag: 'Sleep',
+    readTime: '4 min read',
+    title: 'Better Sleep Habits for a Calmer Mind',
+    desc: 'Small evening habits can lead to better rest and improved emotional balance.',
+    content:
+      'Good sleep begins before bed. Dim the lights, limit screen time, and choose a relaxing activity like reading or stretching. When you wake, keep mornings gentle so your body and mind can start the day calmly.',
+  },
+  {
+    tag: 'Emotions',
+    readTime: '5 min read',
+    title: 'Simple Ways to Name and Release Feelings',
+    desc: 'Naming emotions is the first step to processing them in a healthy way.',
+    content:
+      'When you feel intense emotions, pause and label them: sadness, worry, anger, relief. Writing or speaking them aloud helps your brain feel less stuck. Then try a gentle activity that supports the feeling, like taking a walk or drawing.',
+  },
+  {
+    tag: 'Self-care',
+    readTime: '8 min read',
+    title: 'Self-care, Emotions, Mindset & Sleep Tips',
+    desc: 'Practical daily habits for calm, resilience, and better rest.',
+    content:
+      '🌱 Self-care\nDigital detox: Schedule one hour daily without screens — use it for reading, cooking, or nature time. This reduces stress and restores focus.\n\nBody nourishment: Hydrate intentionally — keep a water bottle nearby and sip regularly. Dehydration often masquerades as fatigue or irritability.\n\n💖 Emotions\nGratitude journaling: Write down three things you’re grateful for each evening. This rewires your brain toward positivity.\n\nBreathing reset: Use the 4-7-8 technique (inhale 4, hold 7, exhale 8) when emotions spike. It calms the nervous system quickly.\n\n🧠 Mindset\nGrowth mindset: Replace “I can’t do this” with “I can’t do this yet.” That single word shifts your perspective toward possibility.\n\nVisualization: Spend 5 minutes imagining yourself succeeding at tomorrow’s challenge. Mental rehearsal boosts confidence and performance.\n\n😴 Sleep\nConsistent schedule: Go to bed and wake up at the same time daily, even weekends. This stabilizes your circadian rhythm.\n\nBedroom environment: Keep your room cool, dark, and quiet. Consider blackout curtains or a white noise machine for deeper rest.\n\nSelf-care routine: Try a “micro self-care break” — set aside 10 minutes daily for something restorative (stretching, journaling, or a short walk). Keeping it short makes it sustainable and prevents guilt about time.\n\nEmotional regulation: Practice the “name it to tame it” method. When you feel overwhelmed, pause and label the emotion (“I feel anxious,” “I feel frustrated”). This simple act reduces intensity and gives you space to respond thoughtfully.\n\nMindset shift: Use reframing. Instead of “I failed,” try “I learned what doesn’t work.” This trains your brain to see setbacks as growth opportunities, building resilience over time.\n\nSleep hygiene: Establish a wind-down ritual — dim lights, avoid screens, and read or meditate for 20 minutes before bed. This signals your body to transition into rest mode and improves sleep quality.',
+  },
+];
+
+const FAQS = [
+  {
+    q: 'What should I do if I feel overwhelmed?',
+    a: 'If you feel overwhelmed, try deep breaths, reach out to someone you trust, and use a grounding technique like focusing on the senses. If you are in danger, contact emergency services immediately.',
+  },
+  {
+    q: 'Can I use this app privately?',
+    a: 'Yes. Your mood entries and chats are stored locally in your browser and are not shared unless you choose to share them.',
+  },
+  {
+    q: 'Where can I find extra help?',
+    a: 'Use the Crisis Resources section for immediate hotlines and trusted support services. You can also contact a mental health professional when you feel ready.',
+  },
+];
 
 function save() {
   if (!currentUser) return;
@@ -827,6 +915,12 @@ function render() {
     case 'support':
       app.innerHTML = SupportPage();
       break;
+    case 'resources':
+      app.innerHTML = ResourcesPage();
+      setTimeout(() => {
+        renderFAQs();
+      }, 100);
+      break;
     case 'games':
       app.innerHTML = GamesHubPageComponent(currentUser);
       setTimeout(() => {
@@ -859,6 +953,172 @@ function render() {
       .querySelector(`.mood-btn[data-mood="${selectedMood}"]`)
       ?.classList.add('selected');
   }
+}
+
+function ResourcesPage() {
+  return `${Nav('resources', currentUser)}
+  <div style="padding-top:90px; padding:24px; max-width:1100px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:32px;">
+      <button onclick="goto('dashboard')" style="background:none; border:none; color:var(--text-muted); font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px;">
+        ← Back to Dashboard
+      </button>
+      <div>
+        <h1 style="font-family:'Sora',sans-serif; font-size:32px; font-weight:700;">Resources & Support</h1>
+        <p style="color:var(--text-secondary);">You're not alone. Help is always available.</p>
+      </div>
+    </div>
+
+    <!-- Crisis Resources -->
+    <section style="margin-bottom:60px;">
+      <h2 style="font-size:20px; font-weight:600; margin-bottom:20px; display:flex; align-items:center; gap:10px; color:#f87171;">
+        <span style="font-size:24px;">⚠️</span> Crisis Resources
+      </h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:20px;">
+        ${CRISIS.map((c) => `
+          <div class="glass" style="border-radius:20px; padding:24px; border:1px solid ${c.border};">
+            <div style="width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; margin-bottom:20px; background:${c.color}; font-size:24px;">
+              ${c.icon}
+            </div>
+            <h3 style="font-size:18px; font-weight:600; margin-bottom:10px;">${c.title}</h3>
+            <p style="color:var(--text-secondary); line-height:1.5; margin-bottom:20px;">${c.desc}</p>
+            <button onclick="handleCrisisAction('${c.action}')" class="btn-primary" style="width:100%; padding:12px; border-radius:12px;">
+              ${c.action}
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- Articles -->
+    <section style="margin-bottom:60px;">
+      <h2 style="font-size:20px; font-weight:600; margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+        📖 Mental Health Articles
+      </h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px,1fr)); gap:20px;">
+        ${ARTICLES.map((article, i) => `
+          <div class="glass" onclick="openArticle(${i})" style="border-radius:20px; padding:24px; cursor:pointer; transition:all 0.3s ease;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="font-size:12px; padding:4px 12px; background:rgba(168,85,247,0.2); color:#c4b5fd; border-radius:9999px;">${article.tag}</span>
+              <span style="color:var(--text-muted); font-size:13px;">${article.readTime}</span>
+            </div>
+            <h3 style="font-size:18px; font-weight:600; margin-bottom:12px;">${article.title}</h3>
+            <p style="color:var(--text-secondary); font-size:14px; line-height:1.5;">${article.desc}</p>
+            <p style="margin-top:16px; color:#a855f7; font-size:14px;">Read full article →</p>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section style="margin-bottom:60px;">
+      <h2 style="font-size:20px; font-weight:600; margin-bottom:20px;">Frequently Asked Questions</h2>
+      <div id="faqContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </section>
+
+    <!-- Contact -->
+    <section>
+      <h2 style="font-size:20px; font-weight:600; margin-bottom:20px;">Contact Support</h2>
+      <div class="glass" style="border-radius:24px; padding:32px;">
+        <form onsubmit="handleContactSubmit(event)" style="max-width:600px; margin:0 auto;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+              <label style="display:block; margin-bottom:8px; color:var(--text-secondary);">Name</label>
+              <input type="text" id="contactName" required class="input-glass" style="width:100%; padding:12px; border-radius:10px;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:8px; color:var(--text-secondary);">Email</label>
+              <input type="email" id="contactEmail" required class="input-glass" style="width:100%; padding:12px; border-radius:10px;">
+            </div>
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="display:block; margin-bottom:8px; color:var(--text-secondary);">Message</label>
+            <textarea id="contactMessage" required rows="5" class="input-glass" style="width:100%; padding:12px; border-radius:10px; resize:vertical;"></textarea>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%; padding:14px; border-radius:12px; font-size:16px;">Send Message</button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- Article Modal -->
+  <div id="articleModal" class="glass" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:90%; max-width:700px; max-height:85vh; overflow-y:auto; border-radius:24px; padding:0; z-index:1000;">
+    <div style="padding:24px; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <span id="modalTag" style="font-size:12px; padding:4px 12px; background:rgba(168,85,247,0.2); color:#c4b5fd; border-radius:9999px;"></span>
+        <h2 id="modalTitle" style="margin-top:12px; font-size:24px;"></h2>
+      </div>
+      <button onclick="closeArticleModal()" style="background:none; border:none; font-size:28px; color:var(--text-muted); cursor:pointer;">×</button>
+    </div>
+    <div id="modalContent" style="padding:24px; line-height:1.7; color:var(--text-secondary);"></div>
+    <div style="padding:20px; border-top:1px solid rgba(255,255,255,0.1); text-align:center;">
+      <button onclick="closeArticleModal()" class="btn-primary" style="padding:12px 40px;">Done Reading</button>
+    </div>
+  </div>`;
+}
+
+// Crisis action
+function handleCrisisAction(action) {
+  if (action.includes('0800567567')) {
+    alert('Calling SADAG Suicide & Crisis Lifeline at 0800567567...');
+  } else if (action.includes('741741')) {
+    alert('Texting HOME to 741741...');
+  } else if (action.includes('Contact Support')) {
+    alert(
+      'Immediate support contacts:\n• 0660340946\n• 0732848953\n• cebolakhemabo05@gmail.com\n• ayabongafatane@gmail.com'
+    );
+  } else {
+    alert('Calling emergency services...');
+  }
+}
+
+// Article Modal
+function openArticle(index) {
+  selectedArticle = ARTICLES[index];
+  if (!selectedArticle) return;
+  const modalTag = document.getElementById('modalTag');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalContent = document.getElementById('modalContent');
+  const modal = document.getElementById('articleModal');
+
+  if (modalTag) modalTag.textContent = selectedArticle.tag;
+  if (modalTitle) modalTitle.textContent = selectedArticle.title;
+  if (modalContent)
+    modalContent.innerHTML = `<div style="white-space:pre-wrap;">${selectedArticle.content}</div>`;
+  if (modal) modal.style.display = 'block';
+}
+
+function closeArticleModal() {
+  const modal = document.getElementById('articleModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// Contact Form
+function handleContactSubmit(e) {
+  e.preventDefault();
+  alert('✅ Message sent! Our support team will reply soon.');
+  if (e.target && typeof e.target.reset === 'function') e.target.reset();
+}
+
+// FAQ Renderer
+function renderFAQs() {
+  const container = document.getElementById('faqContainer');
+  if (!container) return;
+  container.innerHTML = FAQS.map((faq, i) => `
+    <div class="glass" style="border-radius:16px; overflow:hidden;">
+      <button onclick="toggleFaq(${i})" style="width:100%; padding:18px 24px; text-align:left; background:none; border:none; display:flex; justify-content:space-between; align-items:center; font-size:15px;">
+        ${faq.q}
+        <span style="font-size:20px; transition:0.3s;">${openFaq === i ? '−' : '+'}</span>
+      </button>
+      <div id="faqAnswer${i}" style="display:${openFaq === i ? 'block' : 'none'}; padding:0 24px 20px; color:var(--text-secondary);">
+        ${faq.a}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleFaq(i) {
+  openFaq = openFaq === i ? null : i;
+  renderFAQs();
 }
 
 function initGoogleSignInMainPage() {
@@ -1011,3 +1271,9 @@ window.renderGamesHub = renderGamesHub;
 window.getRecommendedGames = getRecommendedGames;
 window.getGameState = getGameState;
 window.getRandomMotivationalMessage = getRandomMotivationalMessage;
+window.handleCrisisAction = handleCrisisAction;
+window.openArticle = openArticle;
+window.closeArticleModal = closeArticleModal;
+window.handleContactSubmit = handleContactSubmit;
+window.renderFAQs = renderFAQs;
+window.toggleFaq = toggleFaq;
