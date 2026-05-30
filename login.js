@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!email || !password) {
         showMessage('Please enter both email and password.', true);
         return;
-      }
+      } 
       try {
         const response = await fetch('/login', {
           method: 'POST',
