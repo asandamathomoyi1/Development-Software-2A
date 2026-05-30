@@ -382,14 +382,42 @@ app.post('/register', async (req, res) => {
     const { id, name, username, email, password } = req.body;
     const displayName =
       name || username || (email ? email.split('@')[0] : 'User');
+
+    // Check local store first
     const existingUser = users.find((u) => u.email === email);
     if (existingUser)
       return res.status(400).json({ error: 'User already exists' });
+
+    // Create user in Firebase Auth so password resets work
+    let firebaseUid = id || Date.now().toString();
+    try {
+      const firebaseUser = await admin.auth().createUser({
+        email,
+        password,
+        displayName,
+      });
+      firebaseUid = firebaseUser.uid;
+      console.log('✅ Firebase Auth user created:', firebaseUid);
+    } catch (firebaseErr) {
+      // If user already exists in Firebase Auth, fetch their UID instead
+      if (firebaseErr.code === 'auth/email-already-exists') {
+        try {
+          const existingFirebaseUser = await admin.auth().getUserByEmail(email);
+          firebaseUid = existingFirebaseUser.uid;
+          console.log('ℹ️ Firebase Auth user already exists, using UID:', firebaseUid);
+        } catch (e) {
+          console.warn('⚠️ Could not fetch existing Firebase user:', e.message);
+        }
+      } else {
+        console.warn('⚠️ Firebase Auth create failed (continuing anyway):', firebaseErr.message);
+      }
+    }
+
     const newUser = {
-      id: id || Date.now().toString(),
+      id: firebaseUid,
       name: displayName,
       email,
-      password,
+      password, // kept for local login fallback
     };
     users.push(newUser);
     await saveUsers();
@@ -400,20 +428,89 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  const user = users.find(
-    (u) => u.email.toLowerCase() === String(email).toLowerCase()
-  );
-  if (!user || user.password !== password) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+
+  // Step 1: Verify credentials against Firebase Auth (source of truth for passwords)
+  try {
+    // Firebase Admin can't verify passwords directly, so we use the REST API
+    const firebaseApiKey = process.env.FIREBASE_API_KEY || 'AIzaSyAX3rbREm6yYzs5KYFQZh04dGzX17Shxyg';
+    const firebaseRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      }
+    );
+    const firebaseData = await firebaseRes.json();
+
+    if (!firebaseRes.ok) {
+      console.log('Firebase Auth login failed:', firebaseData?.error?.message);
+      // Fall back to local password check for users not yet in Firebase Auth
+      const localUser = users.find(
+        (u) => u.email.toLowerCase() === String(email).toLowerCase()
+      );
+      if (!localUser || localUser.password !== password) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+      // Local match - keep going with local user
+      req.session.user = {
+        id: localUser.id,
+        email: localUser.email,
+        name: getUserName(localUser),
+      };
+      return res.json({ success: true, user: req.session.user });
+    }
+
+    // Firebase Auth succeeded — sync local record with Firebase UID
+    const firebaseUid = firebaseData.localId;
+    let localUser = users.find(
+      (u) => u.email.toLowerCase() === String(email).toLowerCase()
+    );
+
+    if (localUser) {
+      // Sync UID and password so local store stays consistent
+      if (localUser.id !== firebaseUid) {
+        localUser.id = firebaseUid;
+      }
+      localUser.password = password; // keep in sync after any reset
+      await saveUsers();
+    } else {
+      // User exists in Firebase but not locally — create local record
+      localUser = {
+        id: firebaseUid,
+        email,
+        name: firebaseData.displayName || email.split('@')[0],
+        password,
+      };
+      users.push(localUser);
+      await saveUsers();
+    }
+
+    req.session.user = {
+      id: localUser.id,
+      email: localUser.email,
+      name: getUserName(localUser),
+    };
+    return res.json({ success: true, user: req.session.user });
+
+  } catch (err) {
+    console.error('Login error:', err.message);
+    // Network issue talking to Firebase — fall back to local check
+    const localUser = users.find(
+      (u) => u.email.toLowerCase() === String(email).toLowerCase()
+    );
+    if (!localUser || localUser.password !== password) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    req.session.user = {
+      id: localUser.id,
+      email: localUser.email,
+      name: getUserName(localUser),
+    };
+    return res.json({ success: true, user: req.session.user });
   }
-  req.session.user = {
-    id: user.id,
-    email: user.email,
-    name: getUserName(user),
-  };
-  res.json({ success: true, user: req.session.user });
 });
 
 app.options('/oauth/google', cors());
@@ -588,11 +685,37 @@ app.post('/reset-password', (req, res) => {
 app.post('/update-password', async (req, res) => {
   try {
     const { email, newPassword } = req.body;
-    const user = users.find((u) => u.email === email);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    user.password = newPassword;
-    await saveUsers();
-    res.json({ success: true });
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' });
+    }
+
+    // Step 1: Update Firebase Auth (source of truth)
+    let firebaseUid = null;
+    try {
+      const firebaseUser = await admin.auth().getUserByEmail(email);
+      firebaseUid = firebaseUser.uid;
+      await admin.auth().updateUser(firebaseUid, { password: newPassword });
+      console.log('✅ Firebase Auth password updated for:', email);
+    } catch (firebaseErr) {
+      console.warn('⚠️ Firebase Auth update failed:', firebaseErr.message);
+      // Don't block — still update local store below
+    }
+
+    // Step 2: Update local Firestore users store
+    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      // User not in local store — could be Firebase-only user, that's fine if Firebase updated
+      if (!firebaseUid) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+    } else {
+      user.password = newPassword;
+      if (firebaseUid) user.id = firebaseUid; // keep UID in sync
+      await saveUsers();
+      console.log('✅ Local password updated for:', email);
+    }
+
+    res.json({ success: true, message: 'Password updated successfully' });
   } catch (err) {
     console.error('Error updating password:', err);
     res.status(500).json({ error: 'Failed to update password' });

@@ -252,11 +252,12 @@ let currentUser = null, currentPage = 'landing';
 let moodHistory = [], chatMessages = [];
 let selectedMood = null, moodChart = null;
 let selectedArticle = null, openFaq = null;
+let pendingMoodMessage = null; // auto-filled chatbot message after mood is recorded
 
 const CRISIS = [
   { title: 'SADAG Suicide & Crisis Lifeline', desc: 'Available 24/7 for anyone in emotional distress or suicidal crisis.', action: 'Call 0800567567', icon: '📞', color: 'rgba(248,113,113,0.18)', border: '#fca5a5' },
   { title: 'Crisis Text Line', desc: 'Support via text message. Text HOME to 741741 for free, confidential help.', action: 'Text 741741', icon: '💬', color: 'rgba(167,139,250,0.18)', border: '#c4b5fd' },
-  { title: 'Immediate Support', desc: 'If you are in immediate danger, contact: 0660340946 / 0732848953 or email cebolakhemabo05@gmail.com / ayabongafatane@gmail.com.', action: 'Contact Support', icon: '🚨', color: 'rgba(249,115,22,0.12)', border: '#fb923c' },
+  { title: 'Immediate Support', desc: 'If you are in immediate danger, contact: 0660340946 / 0732848953 or email cebolakhemlambo05@gmail.com / ayabongafatane@gmail.com.', action: 'Contact Support', icon: '🚨', color: 'rgba(249,115,22,0.12)', border: '#fb923c' },
 ];
 
 const ARTICLES = [
@@ -742,13 +743,28 @@ function selectMoodBtn(val) {
 async function submitMood() {
   if (!selectedMood || !currentUser) return;
   const feeling = document.getElementById('moodFeeling')?.value || '';
+  const moodEmojis = { 1: '😢', 2: '😔', 3: '😐', 4: '😊', 5: '😄' };
+  const moodDescriptions = {
+    1: "I'm feeling very low right now",
+    2: "I'm feeling a bit low today",
+    3: "I'm feeling neutral, just okay",
+    4: "I'm feeling pretty good today",
+    5: "I'm feeling great today",
+  };
   try {
     await addMoodEntry(currentUser.id, selectedMood, moodLabels[selectedMood], feeling);
     moodHistory.unshift({ date: new Date().toLocaleDateString(), mood: selectedMood, feeling, timestamp: Date.now() });
     save();
+
+    // Build the pre-filled chatbot message
+    const base = moodDescriptions[selectedMood] || "I just recorded my mood";
+    pendingMoodMessage = feeling
+      ? `${moodEmojis[selectedMood]} ${base}. ${feeling}`
+      : `${moodEmojis[selectedMood]} ${base}.`;
+
     selectedMood = null;
-    showToast('Mood recorded successfully!', 'success');
-    goto('dashboard');
+    showToast('Mood recorded! Taking you to your companion…', 'success');
+    setTimeout(() => goto('chatbot'), 800);
   } catch {
     showToast('Failed to save mood. Please try again.', 'error');
   }
@@ -820,24 +836,41 @@ async function handleSignup() {
   window.handleSignupRequestOTP();
 }
 
-function handleResetPassword() {
+async function handleResetPassword() {
   const newPw     = document.getElementById('resetNewPassword')?.value;
   const confirmPw = document.getElementById('resetConfirmPassword')?.value;
   const err       = document.getElementById('resetError');
   if (!newPw || !confirmPw) { showError(err, 'Please complete all fields.'); return; }
   if (newPw !== confirmPw)  { showError(err, 'Passwords do not match.'); return; }
   if (!isPasswordStrong(newPw)) { showError(err, 'Password must be at least 8 characters and include one number and one special character.'); return; }
+  if (!pendingResetEmail)   { showError(err, 'Session expired. Please start again.'); goto('reset'); return; }
 
-  const users = JSON.parse(localStorage.getItem('ms_users') || '[]');
-  const user  = users.find(u => u.email === pendingResetEmail);
-  if (!user) { showError(err, 'No account found. Please try again.'); return; }
-  if (user.password === newPw) { showError(err, 'Please choose a new password, not your old one.'); return; }
+  const btn = document.querySelector('#resetPasswordStep .btn-primary');
+  if (btn) { btn.textContent = 'Updating…'; btn.disabled = true; }
 
-  user.password = newPw;
-  localStorage.setItem('ms_users', JSON.stringify(users));
-  pendingResetEmail = null;
-  showToast('Password reset successfully! Please sign in.', 'success');
-  setTimeout(() => goto('login'), 1500);
+  try {
+    // Update password on server — which updates BOTH Firebase Auth AND Firestore
+    const response = await fetch(`${BACKEND_URL}/update-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingResetEmail, newPassword: newPw }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (btn) { btn.textContent = 'Reset Password'; btn.disabled = false; }
+      showError(err, data?.error || 'Failed to update password. Please try again.');
+      return;
+    }
+
+    pendingResetEmail = null;
+    showToast('Password reset successfully! Please sign in.', 'success');
+    setTimeout(() => goto('login'), 1500);
+
+  } catch (e) {
+    if (btn) { btn.textContent = 'Reset Password'; btn.disabled = false; }
+    showError(err, 'Network error. Please check your connection and try again.');
+  }
 }
 
 async function submitChat() {
@@ -884,7 +917,22 @@ function render() {
     case 'signup':    app.innerHTML = SignupPage();  setTimeout(() => renderGoogleButtons(), 50); break;
     case 'reset':     app.innerHTML = ResetPasswordPage(); break;
     case 'dashboard': app.innerHTML = DashboardPage({ currentUser, moodHistory, moodOptions }); setTimeout(buildChart, 80); setTimeout(initNewFeatures, 100); break;
-    case 'chatbot':   app.innerHTML = ChatbotPage(currentUser); setTimeout(renderChatMessages, 50); break;
+    case 'chatbot':
+      app.innerHTML = ChatbotPage(currentUser);
+      setTimeout(() => {
+        renderChatMessages();
+        // Pre-fill input with mood message if coming from mood tracker
+        if (pendingMoodMessage) {
+          const inp = document.getElementById('chatInput');
+          if (inp) {
+            inp.value = pendingMoodMessage;
+            inp.focus();
+            inp.setSelectionRange(inp.value.length, inp.value.length);
+          }
+          pendingMoodMessage = null;
+        }
+      }, 80);
+      break;
     case 'profile':   app.innerHTML = ProfilePage({ currentUser, moodHistory, moodOptions, chatMessages }); break;
     case 'privacy':   app.innerHTML = PrivacyPage(); break;
     case 'terms':     app.innerHTML = TermsPage();   break;
@@ -1052,6 +1100,10 @@ function setupGamesHubEventListeners() {
 //  EXPOSE GLOBALS
 // ─────────────────────────────────────────────
 window.goto                    = goto;
+window.gotoWithMoodMessage = function(message) {
+  pendingMoodMessage = message;
+  goto('chatbot');
+};
 window.backToDashboard         = () => goto('dashboard');
 window.subscribeNewsletter     = subscribeNewsletter;
 window.logout                  = logout;
