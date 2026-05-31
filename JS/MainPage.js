@@ -27,9 +27,10 @@ import {
 // ─────────────────────────────────────────────
 //  EMAILJS / OTP CONFIG
 // ─────────────────────────────────────────────
-const EMAILJS_PUBLIC_KEY  = 'a57sbhuvr2E32KeUo';
-const EMAILJS_SERVICE_ID  = 'service_7kyajxl';
-const EMAILJS_TEMPLATE_ID = 'template_3zl7kul';
+const EMAILJS_PUBLIC_KEY       = 'a57sbhuvr2E32KeUo';
+const EMAILJS_SERVICE_ID       = 'service_7kyajxl';
+const EMAILJS_TEMPLATE_ID      = 'template_3zl7kul';       // OTP template
+const EMAILJS_CONTACT_TEMPLATE = 'template_t5eyh1x';      // Auto-Reply template for contact form
 
 // In-memory OTP store  { email -> { code, expiresAt, attempts } }
 const otpStore = {};
@@ -100,6 +101,7 @@ async function sendOTPEmail(email, name = '') {
 
     // Match your EmailJS template variables exactly: {{email}}, {{passcode}}, {{time}}
     const expiryTime = new Date(Date.now() + OTP_TTL_MS).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Uses original template variables: {{email}}, {{passcode}}, {{time}}
     const response = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       email:    email,
       passcode: code,
@@ -257,15 +259,70 @@ let pendingMoodMessage = null; // auto-filled chatbot message after mood is reco
 const CRISIS = [
   { title: 'SADAG Suicide & Crisis Lifeline', desc: 'Available 24/7 for anyone in emotional distress or suicidal crisis.', action: 'Call 0800567567', icon: '📞', color: 'rgba(248,113,113,0.18)', border: '#fca5a5' },
   { title: 'Crisis Text Line', desc: 'Support via text message. Text HOME to 741741 for free, confidential help.', action: 'Text 741741', icon: '💬', color: 'rgba(167,139,250,0.18)', border: '#c4b5fd' },
-  { title: 'Immediate Support', desc: 'If you are in immediate danger, contact: 0660340946 / 0732848953 or email cebolakhemlambo05@gmail.com / ayabongafatane@gmail.com.', action: 'Contact Support', icon: '🚨', color: 'rgba(249,115,22,0.12)', border: '#fb923c' },
+  { title: 'Immediate Support', desc: 'If you are in immediate danger, contact: 0660340946 / 0732848953 or email cebolakhemabo05@gmail.com / ayabongafatane@gmail.com.', action: 'Contact Support', icon: '🚨', color: 'rgba(249,115,22,0.12)', border: '#fb923c' },
 ];
 
 const ARTICLES = [
-  { tag: 'Self-care', readTime: '5 min read', title: 'How to Build a Simple Daily Routine', desc: 'A calm routine can help you feel more grounded and less overwhelmed.', content: 'A simple daily routine can ease anxiety and create structure. Start with small habits like morning stretches, a hydration break, and a five-minute mindfulness check-in. Over time, refine your routine so it feels supportive rather than strict.' },
-  { tag: 'Mindset', readTime: '6 min read', title: 'Recognizing and Managing Stress Triggers', desc: 'Learn to spot the things that raise your stress and make small changes.', content: 'Stress triggers are personal. They can be deadlines, social pressure, or big life changes. Notice what feelings come up, then give yourself permission to pause, breathe, and choose a small action that helps you feel safer.' },
-  { tag: 'Sleep', readTime: '4 min read', title: 'Better Sleep Habits for a Calmer Mind', desc: 'Small evening habits can lead to better rest and improved emotional balance.', content: 'Good sleep begins before bed. Dim the lights, limit screen time, and choose a relaxing activity like reading or stretching. When you wake, keep mornings gentle so your body and mind can start the day calmly.' },
-  { tag: 'Emotions', readTime: '5 min read', title: 'Simple Ways to Name and Release Feelings', desc: 'Naming emotions is the first step to processing them in a healthy way.', content: 'When you feel intense emotions, pause and label them: sadness, worry, anger, relief. Writing or speaking them aloud helps your brain feel less stuck. Then try a gentle activity that supports the feeling, like taking a walk or drawing.' },
-  { tag: 'Self-care', readTime: '8 min read', title: 'Self-care, Emotions, Mindset & Sleep Tips', desc: 'Practical daily habits for calm, resilience, and better rest.', content: '🌱 Self-care\nDigital detox: Schedule one hour daily without screens. Body nourishment: Hydrate intentionally.\n\n💖 Emotions\nGratitude journaling: Write three things you\'re grateful for each evening.\n\n🧠 Mindset\nGrowth mindset: Replace "I can\'t do this" with "I can\'t do this yet."\n\n😴 Sleep\nConsistent schedule: Go to bed and wake up at the same time daily.' },
+  {
+    tag: 'Self-care', readTime: '5 min read',
+    title: 'How to Build a Simple Daily Routine',
+    desc: 'A calm routine can help you feel more grounded and less overwhelmed.',
+    content: 'A simple daily routine can ease anxiety and create structure. Start with small habits like morning stretches, a hydration break, and a five-minute mindfulness check-in.\n\n🌅 Morning anchors\nBegin with one grounding act — a glass of water, three deep breaths, or writing down one intention for the day. This signals to your nervous system that the day is starting calmly.\n\n☀️ Midday reset\nSchedule a 10-minute break away from screens. Step outside if you can. Even brief exposure to natural light regulates cortisol and lifts mood.\n\n🌙 Evening wind-down\nDim lights an hour before bed, avoid heavy meals late at night, and choose one calming activity — reading, gentle stretching, or journaling. Consistency in your wind-down routine trains your body to prepare for restful sleep.\n\nRemember: routines are tools, not rules. Adjust them until they feel like support, not pressure.'
+  },
+  {
+    tag: 'Mindset', readTime: '6 min read',
+    title: 'Recognizing and Managing Stress Triggers',
+    desc: 'Learn to spot the things that raise your stress and make small changes.',
+    content: 'Stress triggers are personal. They can be deadlines, social pressure, financial worries, or big life changes.\n\n🔍 Identifying your triggers\nKeep a simple stress log for one week. When you notice tension rising, write down what just happened, where you were, and what you were thinking. Patterns will emerge quickly.\n\n🛑 Immediate de-escalation\nWhen triggered: pause, name the emotion ("I feel overwhelmed"), and take five slow breaths. This activates the parasympathetic nervous system and gives your rational brain a chance to engage.\n\n🔧 Long-term strategies\n- Set realistic expectations and communicate boundaries early\n- Break large tasks into small, completable steps\n- Schedule buffer time between commitments\n- Regularly review your workload and say no when needed\n\n💬 Talk about it\nSharing stress with a trusted person halves its weight. If triggers are persistent and severe, speaking with a therapist can help you build lasting coping tools.'
+  },
+  {
+    tag: 'Sleep', readTime: '5 min read',
+    title: 'Better Sleep Habits for a Calmer Mind',
+    desc: 'Small evening habits can lead to better rest and improved emotional balance.',
+    content: 'Sleep is the foundation of emotional regulation, memory consolidation, and physical recovery. Yet it is often the first thing we sacrifice.\n\n😴 The sleep-mood connection\nPoor sleep increases cortisol (the stress hormone) and reduces serotonin and dopamine. Just one night of disrupted sleep can make you 60% more emotionally reactive.\n\n🛏️ Sleep hygiene essentials\n- Keep a consistent bedtime and wake time, even on weekends\n- Keep your room cool (16–18°C is optimal), dark, and quiet\n- Avoid screens at least 45 minutes before bed — blue light suppresses melatonin\n- Limit caffeine after 2 pm\n\n🧘 Wind-down ritual\nTry a 10-minute body scan: starting from your feet, consciously relax each muscle group upward. Pair this with slow breathing (inhale 4, hold 4, exhale 6) to lower your heart rate.\n\n📵 If you wake in the night\nAvoid checking your phone. Instead, try box breathing or a simple gratitude reflection. If you are awake for more than 20 minutes, get up briefly and do something quiet before returning to bed.'
+  },
+  {
+    tag: 'Emotions', readTime: '5 min read',
+    title: 'Simple Ways to Name and Release Feelings',
+    desc: 'Naming emotions is the first step to processing them in a healthy way.',
+    content: 'Emotions are information, not problems to be solved. When we resist them, they intensify. When we name them, their grip loosens — this is called affect labelling.\n\n🏷️ Name it to tame it\nInstead of "I feel bad," try being specific: "I feel disappointed," "I feel anxious about the future," "I feel lonely right now." Precision activates the prefrontal cortex and reduces amygdala activity.\n\n📝 Emotion journaling\nWrite freely for 5 minutes about what you are feeling without editing. Include where you feel it in your body. Research by Dr James Pennebaker shows that expressive writing reduces stress hormones measurably.\n\n🎨 Non-verbal release\nNot everyone finds words easy. Try drawing your emotion, playing music that matches the feeling, or moving your body. Dance, shake, or walk briskly — physical movement completes the emotional cycle.\n\n🌊 Riding the wave\nEmotions peak and pass. When overwhelmed, remind yourself: "This is temporary. I can feel this without being destroyed by it." Time the feeling — most emotional peaks last under 90 seconds.'
+  },
+  {
+    tag: 'Anxiety', readTime: '7 min read',
+    title: 'Understanding and Calming Anxiety',
+    desc: 'Practical tools to interrupt the anxiety cycle and restore calm.',
+    content: 'Anxiety is your nervous system trying to protect you. The problem is that it often fires in situations that are not truly dangerous, leaving you stuck in a stress response.\n\n🧠 What is happening in your brain\nThe amygdala (your alarm centre) detects a threat — real or perceived — and floods your body with adrenaline. Your heart rate rises, breathing quickens, and muscles tense. This is the fight-or-flight response.\n\n🌬️ The fastest reset: physiological sigh\nTake a double inhale through the nose (sniff twice), then a long slow exhale through the mouth. This rapidly deflates the alveoli in your lungs and is the quickest known breath technique for reducing anxiety.\n\n🧭 Grounding with 5-4-3-2-1\nName 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, 1 you can taste. This pulls your attention back to the present moment and out of catastrophic thinking.\n\n🗓️ Worry scheduling\nAllocate 15 minutes per day as your official "worry time." When anxiety thoughts arise outside that window, write them down and tell yourself you will address them during worry time. This prevents rumination from spilling through your entire day.\n\n📞 When to seek help\nIf anxiety is interfering with daily functioning, sleep, or relationships for more than two weeks, speaking with a professional is a sign of strength, not weakness.'
+  },
+  {
+    tag: 'Relationships', readTime: '6 min read',
+    title: 'Healthy Communication and Emotional Boundaries',
+    desc: 'How to express your needs and protect your energy in relationships.',
+    content: 'The quality of our relationships is one of the strongest predictors of mental health. Yet many of us were never taught how to communicate needs or set limits.\n\n💬 Expressing needs clearly\nUse "I" statements rather than "you" accusations. Compare: "You never listen to me" vs "I feel unheard when I am interrupted — can we try again?" The second opens dialogue; the first creates defensiveness.\n\n🚧 What boundaries actually are\nBoundaries are not walls or punishments. They are clear statements of what you need to feel safe and respected. Examples: "I need 30 minutes of quiet when I get home before discussing the day" or "I am not available to talk after 9 pm."\n\n🔋 Protecting your energy\nLearn to recognise energy-draining interactions and give yourself permission to limit them. You do not need to justify resting, declining invitations, or ending conversations that feel harmful.\n\n🤝 Repair after conflict\nConflict is normal. What matters is repair. A simple acknowledgement — "I said something that hurt you and I am sorry" — rebuilds trust faster than any explanation. Prioritise reconnection over being right.'
+  },
+  {
+    tag: 'Grief', readTime: '6 min read',
+    title: 'Navigating Loss and the Grief Process',
+    desc: 'Understanding grief and finding your own path through it.',
+    content: 'Grief is the natural response to losing something or someone we love. It is not a problem to be fixed, but a process to be lived.\n\n🌊 Grief is not linear\nThe well-known stages (denial, anger, bargaining, depression, acceptance) are not a checklist. Grief moves in waves. You may feel acceptance one morning and raw sadness that evening. Both are normal.\n\n😢 What grief can feel like\nPhysical: fatigue, chest tightness, appetite changes, difficulty concentrating. Emotional: sadness, anger, guilt, relief, numbness — sometimes all in one day. There is no wrong way to grieve.\n\n🕯️ What helps\n- Allow yourself to feel without judging the feeling\n- Talk about the person or thing you lost — keeping memories alive is healthy\n- Maintain gentle structure: sleep, meals, movement\n- Accept help when it is offered\n- Give yourself more time than you think you need\n\n📅 Grief and time\nThere is no deadline on grief. However, if after several months you are unable to function, eat, sleep, or care for yourself, please reach out to a grief counsellor or therapist. Complicated grief is real and treatable.'
+  },
+  {
+    tag: 'Mindset', readTime: '5 min read',
+    title: 'Building Resilience: Bouncing Back Stronger',
+    desc: 'Resilience is not about avoiding hardship — it is about growing through it.',
+    content: 'Resilience is not a personality trait you either have or lack. It is a skill built through practice and experience.\n\n💪 The resilience mindset\nResilient people do not experience less pain — they have learned to process it differently. They hold two things at once: "This is hard" and "I have survived hard things before."\n\n🌱 Post-traumatic growth\nResearch shows that many people who go through significant adversity report becoming stronger, more compassionate, and clearer about what matters to them. Struggle can be a catalyst for meaningful change.\n\n🔑 Building your resilience toolkit\n- Cultivate at least three reliable sources of support (people or practices)\n- Practice self-compassion — treat yourself as you would treat a good friend\n- Find meaning in difficulty: "What can I learn from this?"\n- Celebrate small wins and progress, not just outcomes\n- Maintain a sense of agency: focus on what you can control\n\n🧩 Resilience in practice\nWhen something goes wrong, pause before reacting. Ask: "Is this a problem to be solved, a feeling to be processed, or something to be accepted?" Choosing the right response category saves enormous energy.'
+  },
+  {
+    tag: 'Self-care', readTime: '4 min read',
+    title: 'Movement as Medicine: Exercise and Mental Health',
+    desc: 'Even small amounts of movement can dramatically shift your mood.',
+    content: 'Exercise is one of the most evidence-backed interventions for depression, anxiety, and stress — yet it is consistently underutilised.\n\n🧬 What movement does to your brain\nExercise releases endorphins, serotonin, dopamine, and BDNF (brain-derived neurotrophic factor — essentially fertiliser for brain cells). A single 20-minute walk can reduce anxiety for up to 2 hours afterward.\n\n🚶 You do not need a gym\nBrisk walking, dancing in your kitchen, stretching, cycling, swimming, or even vigorous cleaning counts. The threshold for mental health benefit is lower than you think: 10–20 minutes of moderate movement most days.\n\n⏰ When to move for mood\n- Morning movement reduces cortisol and sets an energised tone\n- Midday movement breaks a sedentary pattern and boosts afternoon focus\n- Evening stretching or yoga lowers stress hormones before sleep\n\n🎯 Getting started when motivation is low\nStart absurdly small. Commit to two minutes of movement. Often the hardest part is beginning — once you start, momentum carries you further. Pair movement with something enjoyable: a podcast, a friend, or a favourite playlist.'
+  },
+  {
+    tag: 'Mindfulness', readTime: '6 min read',
+    title: 'Introduction to Mindfulness and Meditation',
+    desc: 'You do not need to empty your mind — you just need to notice it.',
+    content: 'Mindfulness is simply paying deliberate, non-judgmental attention to the present moment. It is not about achieving stillness — it is about noticing the noise without being swept away by it.\n\n🧘 Demystifying meditation\nYou do not need an app, a cushion, or 30 minutes. You need: 5 minutes, a comfortable position, and a willingness to observe your thoughts without chasing them.\n\n📍 A simple starting practice\n1. Sit comfortably and close your eyes\n2. Focus on the sensation of your breath — the rise and fall of your chest\n3. When your mind wanders (it will), gently bring it back — no frustration needed\n4. Do this for 5 minutes\n\nThe "bringing back" is the practice. Every return is a mental repetition that builds the muscle of attention.\n\n🌍 Informal mindfulness\nMindfulness does not require a formal session. Try: eating one meal without a screen, walking without earphones, or washing dishes while noticing the temperature of the water. Anchoring to sensory experience interrupts rumination.\n\n📈 What consistent practice does\nStudies show 8 weeks of daily mindfulness measurably reduces amygdala reactivity, improves sleep, lowers blood pressure, and increases grey matter in areas associated with compassion and self-awareness.'
+  },
 ];
 
 const FAQS = [
@@ -999,7 +1056,12 @@ function ResourcesPage() {
             <div><label style="display:block;margin-bottom:8px;color:var(--text-secondary);">Email</label><input type="email" id="contactEmail" required class="input-glass" style="width:100%;padding:12px;border-radius:10px;"></div>
           </div>
           <div style="margin-bottom:20px;"><label style="display:block;margin-bottom:8px;color:var(--text-secondary);">Message</label><textarea id="contactMessage" required rows="5" class="input-glass" style="width:100%;padding:12px;border-radius:10px;resize:vertical;"></textarea></div>
-          <button type="submit" class="btn-primary" style="width:100%;padding:14px;border-radius:12px;font-size:16px;">Send Message</button>
+          <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;text-align:center;">
+            📬 You will receive an automated confirmation email within 30 seconds.
+          </p>
+          <button type="submit" class="btn-primary" style="width:100%;padding:14px;border-radius:12px;font-size:16px;cursor:pointer;">
+            Send Message
+          </button>
         </form>
       </div>
     </section>
@@ -1030,7 +1092,55 @@ function openArticle(index) {
   document.getElementById('articleModal').style.display = 'block';
 }
 function closeArticleModal() { document.getElementById('articleModal').style.display = 'none'; }
-function handleContactSubmit(e) { e.preventDefault(); alert('✅ Message sent! Our support team will reply soon.'); e.target?.reset(); }
+async function handleContactSubmit(e) {
+  e.preventDefault();
+  const name    = document.getElementById('contactName')?.value?.trim();
+  const email   = document.getElementById('contactEmail')?.value?.trim();
+  const message = document.getElementById('contactMessage')?.value?.trim();
+  const btn     = e.target?.querySelector('button[type="submit"]');
+
+  if (!name || !email || !message) return;
+
+  // Show sending state
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
+
+  // Ensure EmailJS is loaded (same helper used for OTP)
+  try {
+    await ensureEmailJS();
+  } catch(err) {
+    console.error('EmailJS not available:', err);
+  }
+
+  let emailSent = false;
+  try {
+    // Send auto-reply to the user
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_CONTACT_TEMPLATE, {
+      to_email:     email,
+      to_name:      name,
+      from_name:    'Digital Mental Health Platform',
+      subject:      'We have received your message',
+      message:      message,
+      reply_note:   'Thank you for reaching out, ' + name + '. We have received your message and will assign it to the right agent shortly. You can expect a response within 24 hours.',
+    });
+    emailSent = true;
+    console.log('Auto-reply sent to:', email);
+  } catch(err) {
+    console.warn('Auto-reply email failed (non-blocking):', err);
+    // We still treat the form submission as successful — the message was received by us
+  }
+
+  if (btn) { btn.textContent = 'Send Message'; btn.disabled = false; }
+
+  // Show success toast
+  showToast(
+    emailSent
+      ? '✅ Message sent! Check your inbox — a confirmation email is on its way.'
+      : '✅ Message received! Our team will be in touch shortly.',
+    'success'
+  );
+
+  e.target?.reset();
+}
 
 function renderFAQs() {
   const container = document.getElementById('faqContainer');

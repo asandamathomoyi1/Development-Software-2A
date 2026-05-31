@@ -537,10 +537,11 @@ function showGameComplete(points) {
   const game = gameState.currentGame;
   const moodLabel = getPlayerMoodLabel();
 
-  // Build a natural companion message from the game context
-  const gameMsg = game
-    ? `I just completed the "${game.name}" wellness game and earned ${points} points! I was feeling ${moodLabel} before I started. It really helped me focus. Can we talk about how I'm feeling now?`
-    : `I just finished a wellness game and earned ${points} points! It helped me feel more centered. How can I keep this going?`;
+  // Store the message on window so the onclick can safely reference it
+  // (avoids quote-escaping bugs inside HTML attribute strings)
+  window._pendingGameCompletionMsg = game
+    ? 'I just completed the ' + (game.name || 'wellness') + ' game and earned ' + points + ' points! I was feeling ' + moodLabel + ' before I started. It really helped me focus. Can we talk about how I am feeling now?'
+    : 'I just finished a wellness game and earned ' + points + ' points! It helped me feel more centered. How can I keep this going?';
 
   return `
     <div class="game-complete-container">
@@ -563,11 +564,11 @@ function showGameComplete(points) {
         <p class="encouragement-message">${getRandomMotivationalMessage()}</p>
         <div class="game-complete-actions" style="display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:20px;">
           <button class="btn-primary" onclick="window.showGamesHub()"
-            style="width:220px;padding:13px;border-radius:12px;font-size:15px;cursor:pointer;">
+            style="width:220px;padding:13px;border-radius:12px;font-size:15px;cursor:pointer;border:none;">
             🎮 Play Another Game
           </button>
           <button
-            onclick="window.gotoWithMoodMessage && window.gotoWithMoodMessage(decodeURIComponent('${encodeURIComponent(gameMsg)}'))"
+            onclick="if(window.gotoWithMoodMessage){window.gotoWithMoodMessage(window._pendingGameCompletionMsg||'');}"
             style="width:220px;padding:13px;border-radius:12px;font-size:15px;
                    background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(37,99,235,0.2));
                    border:1px solid rgba(96,165,250,0.4);color:#93c5fd;cursor:pointer;

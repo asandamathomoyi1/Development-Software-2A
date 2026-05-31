@@ -27,17 +27,21 @@ export function ChatbotPage(currentUser) {
         <!-- Quick prompts -->
         <div id="quickPrompts" style="display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;flex-shrink:0;scrollbar-width:none;">
             ${[
-              "I'm feeling anxious today",
-              "Help me calm down",
-              "I need some motivation",
-              "I can't sleep well",
-              "I'm feeling lonely",
+              { label: "😟 Feeling anxious",    text: "I am feeling anxious today and could use some support. Can you help me calm down?" },
+              { label: "🧘 Help me calm down",  text: "I need help calming down right now. Can you guide me through something?" },
+              { label: "💪 Need motivation",    text: "I am struggling to find motivation today. Can you help lift my spirits?" },
+              { label: "😴 Can't sleep",         text: "I have been having trouble sleeping. My mind won't stop racing at night." },
+              { label: "😔 Feeling lonely",      text: "I have been feeling really lonely lately and just need someone to talk to." },
+              { label: "😤 Feeling stressed",    text: "I am under a lot of stress right now and don't know where to start." },
+              { label: "😢 Feeling sad",         text: "I have been feeling sad and low for a while. I want to talk about it." },
+              { label: "🌟 I feel good!",        text: "I am actually feeling pretty good today! I want to share what has been helping me." },
             ].map(p => `
-                <button onclick="useQuickPrompt('${p}')"
+                <button onclick="fillPrompt(${JSON.stringify(p.text)}, this)"
                     style="white-space:nowrap;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);color:#93c5fd;font-size:12px;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all 0.2s;flex-shrink:0;"
-                    onmouseover="this.style.background='rgba(59,130,246,0.22)'"
-                    onmouseout="this.style.background='rgba(59,130,246,0.12)'"
-                >${p}</button>
+                    onmouseover="this.style.background='rgba(59,130,246,0.22)';this.style.borderColor='rgba(96,165,250,0.5)'"
+                    onmouseout="if(!this.classList.contains('active-chip')){this.style.background='rgba(59,130,246,0.12)';this.style.borderColor='rgba(59,130,246,0.25)';this.style.color='#93c5fd'}"
+                    title="Click to fill — edit if needed, then press Send"
+                >${p.label}</button>
             `).join('')}
         </div>
 
@@ -105,12 +109,34 @@ export function ChatbotPage(currentUser) {
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         }
-        function useQuickPrompt(text) {
+
+        // Fill the input and focus it — user edits if needed, then clicks Send
+        function fillPrompt(text, btn) {
             const inp = document.getElementById('chatInput');
-            if (inp) {
-                inp.value = text;
-                inp.focus();
-                autoResizeTextarea(inp);
+            if (!inp) return;
+
+            // Put the text in the textarea
+            inp.value = text;
+            autoResizeTextarea(inp);
+            inp.focus();
+            inp.setSelectionRange(inp.value.length, inp.value.length);
+
+            // Reset all chips to default style
+            document.querySelectorAll('#quickPrompts button').forEach(function(b) {
+                b.classList.remove('active-chip');
+                b.style.background = 'rgba(59,130,246,0.12)';
+                b.style.borderColor = 'rgba(59,130,246,0.25)';
+                b.style.color = '#93c5fd';
+                b.style.fontWeight = '400';
+            });
+
+            // Highlight the selected chip
+            if (btn) {
+                btn.classList.add('active-chip');
+                btn.style.background = 'rgba(59,130,246,0.4)';
+                btn.style.borderColor = 'rgba(147,197,253,0.9)';
+                btn.style.color = '#ffffff';
+                btn.style.fontWeight = '600';
             }
         }
     </script>`;
